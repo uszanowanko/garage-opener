@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Garage</title>
+<meta name="theme-color" content="#111417">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Garage">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --fg: #1a1c1e; --muted: #5f6368;
+    --line: #e3e5e8; --accent: #1a73e8; --accent-fg: #ffffff;
+    --ok: #1e8e3e; --err: #d93025;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111417; --card: #1c2024; --fg: #e8eaed; --muted: #9aa0a6;
+      --line: #2e3236; --accent: #8ab4f8; --accent-fg: #06121f;
+      --ok: #81c995; --err: #f28b82;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    min-height: 100dvh;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center;
+  }
+  main { width: 100%; max-width: 420px; flex: 1; display: flex; flex-direction: column; }
+  h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: .01em; margin: 4px 0 20px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  button {
+    font: inherit; cursor: pointer; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--fg); padding: 12px 16px;
+  }
+  button:active { transform: translateY(1px); }
+  #open {
+    width: 100%; padding: 28px 16px; font-size: 1.35rem; font-weight: 600;
+    background: var(--accent); color: var(--accent-fg); border: none; border-radius: 18px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+  }
+  #open[disabled] { opacity: .55; cursor: default; }
+  #open svg { width: 26px; height: 26px; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin: 12px 0 4px; }
+  input {
+    width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+  }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .muted { color: var(--muted); font-size: .85rem; }
+  #status { min-height: 1.4em; margin: 12px 2px 0; font-size: .9rem; text-align: center; }
+  #status.ok { color: var(--ok); } #status.err { color: var(--err); }
+  ul#log { list-style: none; margin: 0; padding: 0; }
+  ul#log li { padding: 10px 0; border-top: 1px solid var(--line); font-size: .92rem; }
+  ul#log li:first-child { border-top: none; }
+  ul#log time { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+  footer { margin-top: auto; padding-top: 18px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mom's garage</h1>
+
+  <!-- first-run: name + keyword -->
+  <section id="setup" class="card" hidden>
+    <p class="muted" style="margin-top:0">One-time setup on this device. Your keyword is
+      turned into a key that stays in this browser &mdash; it is never uploaded.</p>
+    <label for="name">Your name (must match the roster)</label>
+    <input id="name" autocomplete="off" autocapitalize="words" spellcheck="false">
+    <label for="keyword">Your keyword</label>
+    <input id="keyword" type="password" autocomplete="off">
+    <button id="save" style="margin-top:16px; width:100%">Save</button>
+    <p id="setupErr" class="muted" style="color:var(--err)"></p>
+  </section>
+
+  <!-- main -->
+  <section id="app" hidden>
+    <button id="open">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 10 12 4l9 6v10H3z"/><path d="M7 20v-7h10v7"/>
+      </svg>
+      Open
+    </button>
+    <div id="status"></div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="row">
+        <strong>Recent</strong>
+        <button id="refresh" class="muted" style="padding:4px 10px; font-size:.8rem">Refresh</button>
+      </div>
+      <ul id="log"><li class="muted">Loading&hellip;</li></ul>
+      <p class="muted" style="margin-bottom:0">History is kept ~12&nbsp;h.</p>
+    </div>
+
+    <footer class="muted">
+      Signed in as <b id="who"></b> &middot;
+      <a href="#" id="forget">change keyword</a>
+    </footer>
+  </section>
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// CONFIG - fill these in from `make topics` (also in firmware/include/config.h)
+// ---------------------------------------------------------------------------
+const NTFY = "https://ntfy.sh";
+const CMD_TOPIC = "garage-REPLACE_WITH_RANDOM_HEX";
+const LOG_TOPIC = "garage-REPLACE_WITH_OTHER_RANDOM_HEX";
+// ---------------------------------------------------------------------------
+
+const $ = (id) => document.getElementById(id);
+const enc = new TextEncoder();
+const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+async function sha256Hex(str) {
+  return toHex(await crypto.subtle.digest("SHA-256", enc.encode(str)));
+}
+// HMAC key is the ASCII bytes of the hex string k - see docs/protocol.md
+async function hmacHex(kHex, msg) {
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(kHex), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return toHex(await crypto.subtle.sign("HMAC", key, enc.encode(msg)));
+}
+
+const store = {
+  get name() { try { return localStorage.getItem("garage_name"); } catch { return null; } },
+  get k() { try { return localStorage.getItem("garage_k"); } catch { return null; } },
+  set(name, k) { try { localStorage.setItem("garage_name", name); localStorage.setItem("garage_k", k); } catch {} },
+  clear() { try { localStorage.removeItem("garage_name"); localStorage.removeItem("garage_k"); } catch {} },
+};
+
+function show() {
+  const ready = store.name && store.k;
+  $("setup").hidden = ready;
+  $("app").hidden = !ready;
+  if (ready) { $("who").textContent = store.name; loadLog(); }
+}
+
+$("save").onclick = async () => {
+  const name = $("name").value.trim();
+  const keyword = $("keyword").value;
+  $("setupErr").textContent = "";
+  if (!name || name.length > 31 || /[;:]/.test(name)) {
+    $("setupErr").textContent = "Name must be 1-31 chars with no ';' or ':'."; return;
+  }
+  if (!keyword) { $("setupErr").textContent = "Enter your keyword."; return; }
+  store.set(name, await sha256Hex(keyword));
+  $("keyword").value = "";
+  show();
+};
+
+$("forget").onclick = (e) => { e.preventDefault(); store.clear(); show(); };
+
+let busy = false;
+$("open").onclick = async () => {
+  if (busy) return;
+  busy = true;
+  $("open").disabled = true;
+  setStatus("Sending…", "");
+  try {
+    const ts = Math.floor(Date.now() / 1000);
+    const name = store.name;
+    const sig = await hmacHex(store.k, `v1:${ts}:${name}`);
+    const res = await fetch(`${NTFY}/${CMD_TOPIC}`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: `v1;${ts};${name};${sig}`,
+    });
+    if (!res.ok) throw new Error(`ntfy ${res.status}`);
+    setStatus("Sent. Opening…", "ok");
+    setTimeout(loadLog, 2500);
+  } catch (err) {
+    setStatus("Failed: " + err.message, "err");
+  } finally {
+    setTimeout(() => { busy = false; $("open").disabled = false; }, 3000);
+  }
+};
+
+function setStatus(msg, cls) {
+  const el = $("status");
+  el.textContent = msg;
+  el.className = cls || "";
+}
+
+$("refresh").onclick = loadLog;
+
+async function loadLog() {
+  const ul = $("log");
+  try {
+    const res = await fetch(`${NTFY}/${LOG_TOPIC}/json?poll=1&since=12h`);
+    const text = await res.text();
+    const rows = text.trim().split("\n").filter(Boolean)
+      .map((l) => { try { return JSON.parse(l); } catch { return null; } })
+      .filter((m) => m && m.event === "message")
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 10);
+    if (!rows.length) { ul.innerHTML = '<li class="muted">No opens in the last 12 h.</li>'; return; }
+    ul.innerHTML = rows.map((m) =>
+      `<li>${escapeHtml(m.message)}<time>${rel(m.time)}</time></li>`).join("");
+  } catch {
+    ul.innerHTML = '<li class="muted">Could not load history.</li>';
+  }
+}
+
+function rel(epoch) {
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - epoch));
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(epoch * 1000).toLocaleString();
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+show();
+</script>
+</body>
+</html>
