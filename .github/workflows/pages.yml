@@ -28,8 +28,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Bake deviceName into static files
+      # Any of these repo Variables that is set overrides web/config.js.
+      # Settings -> Secrets and variables -> Actions -> Variables.
+      # Leave a Variable unset to keep the committed value.
+      - name: Apply config (env vars override web/config.js)
         run: node web/apply-config.mjs
+        env:
+          DEVICE_NAME: ${{ vars.DEVICE_NAME }}
+          ADMIN_NAME: ${{ vars.ADMIN_NAME }}
+          WEB_LANG: ${{ vars.WEB_LANG }}
+          NTFY_BASE: ${{ vars.NTFY_BASE }}
+          CMD_TOPIC: ${{ vars.CMD_TOPIC }}
+          LOG_TOPIC: ${{ vars.LOG_TOPIC }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

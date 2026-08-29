@@ -17,26 +17,32 @@ command does it.
 make topics
 ```
 
-Copy the two values into **two** places:
+`CMD_TOPIC` / `LOG_TOPIC` go into `firmware/include/config.h` (`#define`s) and
+into the web app (step 2). The clients also need `CMD_TOPIC` — set later in
+their own READMEs.
 
-| Value | `firmware/include/config.h` | `web/config.js` |
+## 2. Web app: name, language, topics  `[YOU]`
+
+Six settings. Set each **either** by editing `web/config.js` and committing,
+**or** by adding a repo Variable (Settings → Secrets and variables → Actions →
+Variables) — a set Variable wins at deploy, an unset one keeps `config.js`.
+
+| `config.js` key | Variable | What |
 |---|---|---|
-| `CMD_TOPIC` | `#define CMD_TOPIC` | `cmdTopic` |
-| `LOG_TOPIC` | `#define LOG_TOPIC` | `logTopic` |
+| `deviceName` | `DEVICE_NAME` | title, heading, installed-app name (e.g. `Wrota`) |
+| `adminName` | `ADMIN_NAME` | fills "the link **{name}** sent you"; empty → translated fallback |
+| `lang` | `WEB_LANG` | `auto`, or pin `en` / `pl` / … |
+| `ntfy` | `NTFY_BASE` | ntfy base URL (default `https://ntfy.sh`) |
+| `cmdTopic` | `CMD_TOPIC` | must match `config.h` |
+| `logTopic` | `LOG_TOPIC` | must match `config.h` |
 
-(The clients also need `CMD_TOPIC` — set later in their own READMEs.)
+`web/apply-config.mjs` (run by `pages.yml`) applies the overrides and bakes
+`deviceName` into the static HTML/manifest. Locally: `node web/apply-config.mjs`
+is a no-op unless you export the same vars.
 
-## 2. Name, language, config  `[YOU]`
+## 3. Firmware config  `[YOU]`
 
-**`web/config.js`** — edit in place:
-
-| Field | What |
-|---|---|
-| `deviceName` | shown as the title, heading, and installed-app name (e.g. `"Wrota"`) |
-| `adminName` | fills "the personal link **{name}** sent you" — `""` → a translated fallback |
-| `lang` | `"auto"` (follow the phone) or pin `"en"` / `"pl"` / … |
-
-**`firmware/include/config.h`** (`cp` from `config.example.h` first):
+`cp firmware/include/config.example.h firmware/include/config.h`, then fill in:
 
 - `WIFI_SSID/PASS`, `STATIC_IP` (+ DHCP reservation), `TZ_STRING`, the two
   topics, `OTA_PASSWORD`, `WEB_BASE_URL`, GPIOs.
@@ -49,7 +55,7 @@ Copy the two values into **two** places:
 key — the switcher and auto-detect pick it up. The iOS `signer.js` has its own
 small `MSG` table (`LANG` near the top).
 
-## 3. Invite everyone  `[YOU]`
+## 4. Invite everyone  `[YOU]`
 
 For each family member:
 
@@ -60,12 +66,12 @@ make invite NAME="Mama"
 It prints:
 - a `{ "Mama", "k" }` line — paste into `ROSTER[]` in `config.h` (delete the
   placeholder `Tomek` row).
-- a personal link (`.../#n=Mama&k=...`) — **save it**, you'll send it in step 7.
+- a personal link (`.../#n=Mama&k=...`) — **save it**, you'll send it in step 8.
 
 Re-issue a lost link later without touching the roster:
 `node firmware/tools/invite.mjs --name "Mama" --key <their 64-hex k>`.
 
-## 4. Flash & bench-test  `[YOU]`
+## 5. Flash & bench-test  `[YOU]`
 
 USB-connect the ESP32:
 
@@ -95,17 +101,17 @@ node firmware/tools/send-open.mjs --name Nobody --key $K                   # unk
 #   replay: run "--ts <fixed>" twice with a valid key
 
 # B4 - flood: run test-open ~10x fast, actuations stop at MAX_OPENS_PER_MIN
-# B5 - disable mom's AP 3 min, re-enable: [ntfy] reconnects
+# B5 - disable the local AP 3 min, re-enable: [ntfy] reconnects
 # B6 - OTA: pio run -d firmware -t upload --upload-port <static-ip>
 ```
 
-## 5. Install  `[YOU]`
+## 6. Install  `[YOU]`
 
 Wire per `wiring.md`, mount the box, power from the 5 V supply. Run **I7–I14**
 from the plan (sensor, cellular open, LAN-with-WAN-unplugged, Siri, geofences,
 web page, ntfy push).
 
-## 6. Web page  `[YOU]`
+## 7. Web page  `[YOU]`
 
 - New GitHub repo, push this monorepo.
 - **Settings → Pages → Source: GitHub Actions**. The included
@@ -114,16 +120,16 @@ web page, ntfy push).
 - The page is at `WEB_BASE_URL` + `/`. Confirm `web/config.js` topics match
   `config.h`.
 
-## 7. Hand out the links  `[YOU]` / family
+## 8. Hand out the links  `[YOU]` / family
 
-- **Everyone**: send each person the **personal link** from step 3
+- **Everyone**: send each person the **personal link** from step 4
   ("tap this, then Add to Home Screen"). That's the whole setup for a
   button-only user — no name or key to type.
 - Hands-free (Siri / Assistant / geofence): `clients/ios/README.md`,
   `clients/android/README.md`.
 - "Who opened it" push feed: `clients/ntfy-app/README.md`.
 
-## 8. Decommission the old stack  `[YOU]`
+## 9. Decommission the old stack  `[YOU]`
 
 Only after I7–I14 pass:
 

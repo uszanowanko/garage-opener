@@ -1,22 +1,29 @@
 // Per-deployment settings for the web app.
 //
+// Two ways to set these, mix freely:
+//   A) edit the values below and commit, or
+//   B) set repo Variables (Settings -> Secrets and variables -> Actions ->
+//      Variables) - any that are set override the matching value here at deploy:
+//        DEVICE_NAME  ADMIN_NAME  WEB_LANG  NTFY_BASE  CMD_TOPIC  LOG_TOPIC
+//
 // Not secret - this file is served publicly. The command topic is only useful
 // to someone who also has a valid per-person key (see docs/threat-model.md).
 
 window.GARAGE_CONFIG = {
-  // Page title, heading, and the name of the installed app on the home screen.
-  deviceName: "Wrota",
+  // Page title, heading, and the name of the installed app.   [DEVICE_NAME]
+  deviceName: "Gate",
 
-  // Used in "Open the personal link <admin> sent you".
-  // Leave "" to fall back to a translated word ("the owner" / "właściciel").
+  // Fills "the personal link <admin> sent you".               [ADMIN_NAME]
+  // "" -> a translated fallback ("the owner" / "właściciel").
   adminName: "",
 
-  // "auto" follows the browser/phone language. Or pin one: "en", "pl", ...
-  // (must be a key present in i18n.js)
+  // "auto" follows the phone; or pin "en" / "pl" / ...         [WEB_LANG]
   lang: "auto",
 
-  // ntfy - must match firmware/include/config.h
+  // ntfy base URL - must match firmware.                       [NTFY_BASE]
   ntfy: "https://ntfy.sh",
+
+  // must match firmware/include/config.h                       [CMD_TOPIC] [LOG_TOPIC]
   cmdTopic: "gate-REPLACE_WITH_RANDOM_HEX",
   logTopic: "gate-REPLACE_WITH_OTHER_RANDOM_HEX",
 };

@@ -13,8 +13,10 @@ phone ──► ntfy.sh ──► ESP32 + relay ──► gate opener
 - Every open is signed with a **per-user HMAC** (a 64-hex key per person, sent to
   them once as a setup link) and is replay-protected.
 - A **static web button** (GitHub Pages) replaces the old Next.js app and shows
-  who opened it and when. Name + language are set in `web/config.js`
-  (`deviceName`, `lang`); UI strings live in `web/i18n.js` (ships `en` + `pl`).
+  who opened it and when. Name / language / topics come from `web/config.js`
+  **or** repo Variables (`DEVICE_NAME`, `ADMIN_NAME`, `WEB_LANG`, `NTFY_BASE`,
+  `CMD_TOPIC`, `LOG_TOPIC`) that override it at deploy. UI strings are in
+  `web/i18n.js` (ships `en` + `pl`).
 - Phones can also open it hands-free via Siri / Google Assistant / geofence
   (see `clients/`).
 
