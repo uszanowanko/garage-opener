@@ -1,0 +1,20 @@
+# firmware secrets & build
+firmware/include/config.h
+firmware/.pio/
+.pio/
+
+# node
+node_modules/
+
+# android-auto (phase 2)
+android-auto/.gradle/
+android-auto/build/
+android-auto/app/build/
+android-auto/local.properties
+*.keystore
+*.jks
+
+# editors / os
+.DS_Store
+.vscode/
+!.vscode/extensions.json
