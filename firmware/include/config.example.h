@@ -37,6 +37,10 @@
 #define CMD_TOPIC        "garage-REPLACE_WITH_RANDOM_HEX"
 #define LOG_TOPIC        "garage-REPLACE_WITH_OTHER_RANDOM_HEX"
 
+// Published web page, no trailing slash. Used by `make invite` to build the
+// per-person setup links.
+#define WEB_BASE_URL     "https://uszanowanko.github.io/garage-opener"
+
 // ---------------------------------------------------------------------------
 // GPIO
 // ---------------------------------------------------------------------------
@@ -61,10 +65,9 @@
 // ---------------------------------------------------------------------------
 // Roster: one row per person.
 //   name   : 1..31 chars, printable ASCII, NO ';' and NO ':'
-//   k_hex  : SHA-256(keyword) as 64 lowercase hex chars. Produce with:
-//              make enroll
-//   The keyword itself is never stored here or anywhere on the device.
-// To revoke someone: delete their row and re-flash (or OTA).
+//   k_hex  : that person's 64-hex key. Generate name + link + this line with:
+//              make invite NAME="Mama"
+//   To revoke someone: delete their row and re-flash (or OTA).
 // ---------------------------------------------------------------------------
 static const struct RosterEntry {
   const char* name;

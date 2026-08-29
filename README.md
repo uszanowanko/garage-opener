@@ -10,8 +10,8 @@ phone ──► ntfy.sh ──► ESP32 + relay ──► garage opener
 
 - **ESP32** at the garage holds a long-lived connection to a random `ntfy.sh`
   topic and pulses a relay across the opener's manual-button terminals.
-- Every open is signed with a **per-user HMAC** (keyword → key, key never leaves
-  the device) and is replay-protected.
+- Every open is signed with a **per-user HMAC** (a 64-hex key per person, sent to
+  them once as a setup link) and is replay-protected.
 - A **static web button** (GitHub Pages) replaces the old Next.js app and shows
   who opened the door and when.
 - Phones can also open it hands-free via Siri / Google Assistant / geofence
@@ -38,10 +38,10 @@ phone ──► ntfy.sh ──► ESP32 + relay ──► garage opener
 ## Quick commands
 
 ```
-make topics      # generate the two random ntfy topics
-make enroll      # turn a person's keyword into a roster line
-make build       # compile the firmware
-make flash       # compile + upload over USB
-make monitor     # serial console
-make test-open   # send a signed "open" from the command line
+make topics            # generate the two random ntfy topics
+make invite NAME="Mama" # a person's key + roster line + setup link
+make build             # compile the firmware
+make flash             # compile + upload over USB
+make monitor           # serial console
+make test-open         # send a signed "open" from the command line
 ```

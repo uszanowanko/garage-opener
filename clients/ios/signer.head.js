@@ -4,10 +4,9 @@
 // Opens mom's garage. Run it from a Shortcut, Siri ("open mom's garage"),
 // the home screen, or an automation (Arrive / Join Wi-Fi).
 //
-// ---- ONE-TIME SETUP (run this once, then delete these 3 lines) --------------
-//   Keychain.set("garage_name", "Tomek")        // your roster name
-//   Keychain.set("garage_keyword", "hunter2")   // your keyword
-//   // then remove the 3 lines and keep the rest
+// ---- ONE-TIME SETUP (run this once, then delete these 2 lines) --------------
+//   Keychain.set("garage_name", "Tomek")   // your roster name
+//   Keychain.set("garage_k", "….64 hex…")  // the k= part of your personal link
 // ---------------------------------------------------------------------------
 //
 // CONFIG - fill from `make topics` (same values as firmware + web):

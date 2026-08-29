@@ -72,14 +72,22 @@
 <main>
   <h1>Mom's garage</h1>
 
-  <!-- first-run: name + keyword -->
+  <!-- no credentials, no invite link in the URL -->
+  <section id="invite" class="card" hidden>
+    <p style="margin-top:0">This device isn't set up yet.</p>
+    <p class="muted">Open the personal link Tomek sent you &mdash; it sets this up
+      automatically. Then use Share &rarr; <b>Add to Home Screen</b> so it's one tap.</p>
+    <p class="muted" style="margin-bottom:0"><a href="#" id="manualLink">set up manually</a></p>
+  </section>
+
+  <!-- manual fallback (for Tomek / a reinstall without the link) -->
   <section id="setup" class="card" hidden>
-    <p class="muted" style="margin-top:0">One-time setup on this device. Your keyword is
-      turned into a key that stays in this browser &mdash; it is never uploaded.</p>
-    <label for="name">Your name (must match the roster)</label>
+    <p class="muted" style="margin-top:0">Manual setup. The key is stored only in
+      this browser and is never uploaded.</p>
+    <label for="name">Name (must match the roster)</label>
     <input id="name" autocomplete="off" autocapitalize="words" spellcheck="false">
-    <label for="keyword">Your keyword</label>
-    <input id="keyword" type="password" autocomplete="off">
+    <label for="key">Key &mdash; 64 hex characters (from <code>make invite</code>)</label>
+    <input id="key" type="password" autocomplete="off" spellcheck="false">
     <button id="save" style="margin-top:16px; width:100%">Save</button>
     <p id="setupErr" class="muted" style="color:var(--err)"></p>
   </section>
@@ -105,7 +113,7 @@
 
     <footer class="muted">
       Signed in as <b id="who"></b> &middot;
-      <a href="#" id="forget">change keyword</a>
+      <a href="#" id="forget">reset this device</a>
     </footer>
   </section>
 </main>
@@ -122,10 +130,9 @@ const LOG_TOPIC = "garage-REPLACE_WITH_OTHER_RANDOM_HEX";
 const $ = (id) => document.getElementById(id);
 const enc = new TextEncoder();
 const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+const HEX64 = /^[0-9a-f]{64}$/;
+const validName = (n) => !!n && n.length <= 31 && !/[;:]/.test(n) && !/[\x00-\x1f\x7f]/.test(n);
 
-async function sha256Hex(str) {
-  return toHex(await crypto.subtle.digest("SHA-256", enc.encode(str)));
-}
 // HMAC key is the ASCII bytes of the hex string k - see docs/protocol.md
 async function hmacHex(kHex, msg) {
   const key = await crypto.subtle.importKey(
@@ -140,27 +147,56 @@ const store = {
   clear() { try { localStorage.removeItem("garage_name"); localStorage.removeItem("garage_k"); } catch {} },
 };
 
+// Personal setup link: .../#n=<name>&k=<64hex> (query string also tolerated).
+// On success we store the creds and scrub them from the URL + history.
+function provisionFromUrl() {
+  for (const raw of [location.hash.slice(1), location.search.slice(1)]) {
+    if (!raw) continue;
+    const p = new URLSearchParams(raw);
+    const n = (p.get("n") || "").trim();
+    const k = (p.get("k") || "").trim().toLowerCase();
+    if (validName(n) && HEX64.test(k)) {
+      store.set(n, k);
+      history.replaceState(null, "", location.pathname);
+      return true;
+    }
+  }
+  return false;
+}
+
 function show() {
-  const ready = store.name && store.k;
-  $("setup").hidden = ready;
+  if (!(store.name && store.k)) provisionFromUrl();
+  const ready = !!(store.name && store.k);
   $("app").hidden = !ready;
+  $("invite").hidden = ready;
+  $("setup").hidden = true;
   if (ready) { $("who").textContent = store.name; loadLog(); }
 }
 
-$("save").onclick = async () => {
+$("manualLink").onclick = (e) => {
+  e.preventDefault();
+  $("invite").hidden = true;
+  $("setup").hidden = false;
+};
+
+$("save").onclick = () => {
   const name = $("name").value.trim();
-  const keyword = $("keyword").value;
+  const key = $("key").value.trim().toLowerCase();
   $("setupErr").textContent = "";
-  if (!name || name.length > 31 || /[;:]/.test(name)) {
-    $("setupErr").textContent = "Name must be 1-31 chars with no ';' or ':'."; return;
-  }
-  if (!keyword) { $("setupErr").textContent = "Enter your keyword."; return; }
-  store.set(name, await sha256Hex(keyword));
-  $("keyword").value = "";
+  if (!validName(name)) { $("setupErr").textContent = "Name: 1-31 chars, no ';' or ':'."; return; }
+  if (!HEX64.test(key)) { $("setupErr").textContent = "Key must be 64 hex characters."; return; }
+  store.set(name, key);
+  $("key").value = "";
   show();
 };
 
-$("forget").onclick = (e) => { e.preventDefault(); store.clear(); show(); };
+$("forget").onclick = (e) => {
+  e.preventDefault();
+  if (confirm("Reset this device? You'll need your personal link again.")) {
+    store.clear();
+    show();
+  }
+};
 
 let busy = false;
 $("open").onclick = async () => {

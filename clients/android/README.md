@@ -4,7 +4,7 @@ Two ways, pick per person:
 
 | Want | Do |
 |---|---|
-| Just a button | Add the **web page** to the Home Screen (Chrome → ⋮ → Add to Home screen), enter your keyword once. Done. |
+| Just a button | Tap your **personal link** (from `make invite`), then Chrome → ⋮ → **Add to Home screen**. Done. |
 | "Hey Google, open mom's garage" / open on arrival / a home-screen widget | **HTTP Shortcuts** (below). |
 
 ## HTTP Shortcuts
@@ -27,7 +27,8 @@ Free & open source: <https://http-shortcuts.rmy.ch> (Play Store: "HTTP Shortcuts
 ### 2. Add the signing script
 
 Shortcut → **Scripting** → **Run before execution** → paste
-`prepare-request.js` from this folder. Set `NAME` and `KEYWORD` at the top.
+`prepare-request.js` from this folder. Set `NAME` and `K` (the `k=` part of your
+personal link) at the top.
 
 ### 3. LAN fast path (optional, works with mom's internet down)
 

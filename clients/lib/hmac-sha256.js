@@ -5,11 +5,12 @@
 // deliberately small and frozen. Keep it byte-for-byte identical everywhere
 // it is pasted (clients/ios/signer.js embeds a copy).
 //
-//   GarageCrypto.sha256Hex("keyword")            -> k   (64 hex chars)
 //   GarageCrypto.hmacSha256Hex(k, "v1:<ts>:<name>")  -> sig (64 hex chars)
+//   GarageCrypto.sha256Hex(str)                      -> hex (only if you want a
+//                                                        passphrase-derived k)
 //
 // Protocol (docs/protocol.md):
-//   k    = sha256Hex(utf8(keyword))
+//   k    = the person's 64-hex key
 //   sig  = hmacSha256(key = utf8(k), msg = utf8("v1:" + ts + ":" + name))
 
 var GarageCrypto = (function () {

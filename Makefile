@@ -3,23 +3,23 @@
 FW := firmware
 PORT ?=
 
-.PHONY: help topics enroll build flash monitor test-open test-lan clean
+.PHONY: help topics invite build flash monitor test-open test-lan clean
 
 help:
 	@echo "topics     - generate the two random ntfy topics"
-	@echo "enroll     - keyword -> roster line for config.h"
+	@echo "invite     - one person's key + roster line + setup link   (NAME=\"Mama\")"
 	@echo "build      - compile firmware"
 	@echo "flash      - compile + upload over USB   (PORT=/dev/ttyUSB0 to force)"
 	@echo "monitor    - serial console at 115200"
-	@echo "test-open  - send a signed open via ntfy   (NAME=.. KEYWORD=..)"
+	@echo "test-open  - send a signed open via ntfy   (NAME=.. KEY=..)"
 	@echo "test-lan   - send a signed open to http://garage.local/open"
 
 topics:
 	@echo "CMD_TOPIC = garage-$$(openssl rand -hex 24)"
 	@echo "LOG_TOPIC = garage-$$(openssl rand -hex 24)"
 
-enroll:
-	@node $(FW)/tools/enroll.mjs
+invite:
+	@node $(FW)/tools/invite.mjs $(if $(NAME),--name "$(NAME)",)
 
 build:
 	pio run -d $(FW)
@@ -31,10 +31,10 @@ monitor:
 	pio device monitor -d $(FW) -b 115200 $(if $(PORT),-p $(PORT),)
 
 test-open:
-	@node $(FW)/tools/send-open.mjs --name "$(NAME)" --keyword "$(KEYWORD)"
+	@node $(FW)/tools/send-open.mjs --name "$(NAME)" --key "$(KEY)"
 
 test-lan:
-	@node $(FW)/tools/send-open.mjs --name "$(NAME)" --keyword "$(KEYWORD)" --lan
+	@node $(FW)/tools/send-open.mjs --name "$(NAME)" --key "$(KEY)" --lan
 
 clean:
 	pio run -d $(FW) -t clean

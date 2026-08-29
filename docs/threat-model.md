@@ -7,8 +7,8 @@ remote", with no ongoing maintenance.
 
 | Thing | Secret? | If leaked |
 |---|---|---|
-| `keyword` (per person) | **yes** | that person's access until you rotate their roster line |
-| `k = SHA-256(keyword)` | **yes-ish** — it's on the ESP32 flash and in each of that person's clients | same as the keyword for *this door*; does **not** reveal the keyword (so no password-reuse blast radius) |
+| `k` (per person, 64 hex) | **yes** — on the ESP32 flash, in that person's clients, and in their setup link | opens *this door* as that person, until you rotate their roster line. It's random, so it reveals nothing else (no password reuse). |
+| the **setup link** (`#n=..&k=..`) | **yes** — it carries `k` | same as `k`. Lives in whatever you sent it through and the recipient's messages. |
 | `CMD_TOPIC` | **no** — it ships in the public web page | someone can publish junk to it; the ESP32 rejects anything without a valid signature. Worst case: noise in the ESP32 serial log. |
 | `LOG_TOPIC` | **no** | someone can read "who opened it when", or publish fake log lines. No door access. |
 
@@ -39,10 +39,15 @@ useless after 60 s, and useless immediately once a newer one lands.
   (edit 3 files, re-flash), or self-host ntfy with an auth token.
 - **A stolen unlocked phone** → has that person's client. Same as a stolen
   physical remote; revoke by removing their roster line + re-flash.
+- **Setup link in a chat history** → someone with access to that conversation
+  (a shared iCloud, a nosy relative, a leaked backup) gets that person's `k`.
+  Send links over a reasonably private channel; the page strips the link from
+  the URL after first use; rotating one person is cheap (below).
 
 ## Rotating / revoking
 
-- One person: delete or change their `{ "Name", "k" }` line in `config.h`,
-  `make flash` (or OTA). Their old keyword stops working immediately.
+- One person: `make invite NAME="Mama"` for a fresh `k`, replace their
+  `{ "Name", "k" }` line in `config.h`, `make flash` (or OTA), send the new
+  link. Their old link/key stops working immediately.
 - Everything: `make topics`, update `config.h` + `web/index.html` + the client
-  configs, re-flash, re-enter keywords.
+  configs, re-flash, re-send links.

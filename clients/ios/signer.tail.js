@@ -12,11 +12,10 @@ async function post(url, body, timeoutS) {
 
 async function run() {
   const name = Keychain.contains("garage_name") ? Keychain.get("garage_name") : null;
-  const keyword = Keychain.contains("garage_keyword") ? Keychain.get("garage_keyword") : null;
-  if (!name || !keyword) return "Garage is not set up on this phone";
+  const k = Keychain.contains("garage_k") ? Keychain.get("garage_k") : null;
+  if (!name || !k) return "Garage is not set up on this phone";
 
   const ts = Math.floor(Date.now() / 1000);
-  const k = GarageCrypto.sha256Hex(keyword);
   const sig = GarageCrypto.hmacSha256Hex(k, "v1:" + ts + ":" + name);
   const body = "v1;" + ts + ";" + name + ";" + sig;
 

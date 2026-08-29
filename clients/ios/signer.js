@@ -4,10 +4,9 @@
 // Opens mom's garage. Run it from a Shortcut, Siri ("open mom's garage"),
 // the home screen, or an automation (Arrive / Join Wi-Fi).
 //
-// ---- ONE-TIME SETUP (run this once, then delete these 3 lines) --------------
-//   Keychain.set("garage_name", "Tomek")        // your roster name
-//   Keychain.set("garage_keyword", "hunter2")   // your keyword
-//   // then remove the 3 lines and keep the rest
+// ---- ONE-TIME SETUP (run this once, then delete these 2 lines) --------------
+//   Keychain.set("garage_name", "Tomek")   // your roster name
+//   Keychain.set("garage_k", "….64 hex…")  // the k= part of your personal link
 // ---------------------------------------------------------------------------
 //
 // CONFIG - fill from `make topics` (same values as firmware + web):
@@ -26,11 +25,12 @@ const LAN_TIMEOUT_S = 2.5;
 // deliberately small and frozen. Keep it byte-for-byte identical everywhere
 // it is pasted (clients/ios/signer.js embeds a copy).
 //
-//   GarageCrypto.sha256Hex("keyword")            -> k   (64 hex chars)
 //   GarageCrypto.hmacSha256Hex(k, "v1:<ts>:<name>")  -> sig (64 hex chars)
+//   GarageCrypto.sha256Hex(str)                      -> hex (only if you want a
+//                                                        passphrase-derived k)
 //
 // Protocol (docs/protocol.md):
-//   k    = sha256Hex(utf8(keyword))
+//   k    = the person's 64-hex key
 //   sig  = hmacSha256(key = utf8(k), msg = utf8("v1:" + ts + ":" + name))
 
 var GarageCrypto = (function () {
@@ -165,11 +165,10 @@ async function post(url, body, timeoutS) {
 
 async function run() {
   const name = Keychain.contains("garage_name") ? Keychain.get("garage_name") : null;
-  const keyword = Keychain.contains("garage_keyword") ? Keychain.get("garage_keyword") : null;
-  if (!name || !keyword) return "Garage is not set up on this phone";
+  const k = Keychain.contains("garage_k") ? Keychain.get("garage_k") : null;
+  if (!name || !k) return "Garage is not set up on this phone";
 
   const ts = Math.floor(Date.now() / 1000);
-  const k = GarageCrypto.sha256Hex(keyword);
   const sig = GarageCrypto.hmacSha256Hex(k, "v1:" + ts + ":" + name);
   const body = "v1;" + ts + ";" + name + ";" + sig;
 

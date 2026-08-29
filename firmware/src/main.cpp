@@ -10,8 +10,8 @@
 //     ts      unix seconds
 //     name    roster name, 1..31 chars, no ';' or ':'
 //     sighex  lowercase hex of HMAC-SHA256(key = utf8(k), msg = "v1:<ts>:<name>")
-//             k = lowercase-hex SHA-256(utf8(keyword)), 64 chars. The HMAC key
-//             is the 64 ASCII bytes of that hex string (portable across every
+//             k = the person's 64-hex key (from `make invite`). The HMAC key is
+//             the 64 ASCII bytes of that hex string (portable across every
 //             client). Only k is stored - here and in the clients. See
 //             docs/protocol.md.
 //

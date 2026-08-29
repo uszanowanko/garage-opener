@@ -3,12 +3,12 @@
 // endpoint (--lan). Topics/host are read from firmware/include/config.h so
 // there is one source of truth.
 //
-//   node firmware/tools/send-open.mjs --name Tomek --keyword hunter2
-//   node firmware/tools/send-open.mjs --name Tomek --keyword hunter2 --lan
-//   node firmware/tools/send-open.mjs --name Tomek --keyword hunter2 --ts 1000   (stale, for testing)
+//   node firmware/tools/send-open.mjs --name Tomek --key <64 hex>
+//   node firmware/tools/send-open.mjs --name Tomek --key <64 hex> --lan
+//   node firmware/tools/send-open.mjs --name Tomek --key <64 hex> --ts 1000   (stale, for testing)
 
 import { readFileSync } from "node:fs";
-import { createHash, createHmac } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { argv, exit } from "node:process";
@@ -22,8 +22,13 @@ for (let i = 2; i < argv.length; i++) {
   }
 }
 
-if (!args.name || !args.keyword || args.name === true || args.keyword === true) {
-  console.error("usage: send-open.mjs --name NAME --keyword KEYWORD [--lan] [--ts N] [--sig BADHEX]");
+if (!args.name || !args.key || args.name === true || args.key === true) {
+  console.error("usage: send-open.mjs --name NAME --key <64 hex> [--lan] [--ts N] [--sig BADHEX]");
+  exit(2);
+}
+const kHex = String(args.key).toLowerCase();
+if (!/^[0-9a-f]{64}$/.test(kHex)) {
+  console.error("! --key must be exactly 64 hex characters");
   exit(2);
 }
 
@@ -44,7 +49,6 @@ const MDNS_HOST = grab("MDNS_HOST") || "garage";
 const STATIC_IP = grab("STATIC_IP");
 
 const ts = args.ts && args.ts !== true ? String(parseInt(args.ts, 10)) : String(Math.floor(Date.now() / 1000));
-const kHex = createHash("sha256").update(args.keyword, "utf8").digest("hex");
 const sig =
   args.sig && args.sig !== true
     ? args.sig

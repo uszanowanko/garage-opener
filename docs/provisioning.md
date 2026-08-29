@@ -34,16 +34,21 @@ Fill in: `WIFI_SSID/PASS`, `STATIC_IP` (+ matching DHCP reservation on mom's
 router), `TZ_STRING`, the two topics, `OTA_PASSWORD`, and check the GPIOs match
 your wiring.
 
-## 3. Enrol everyone  `[YOU]`
+## 3. Invite everyone  `[YOU]`
 
-For each family member, ask them for a keyword, then:
+For each family member:
 
 ```
-make enroll
+make invite NAME="Mama"
 ```
 
-Paste each printed `{ "Name", "k" }` line into `ROSTER[]` in `config.h`.
-Delete the placeholder `Tomek` row.
+It prints:
+- a `{ "Mama", "k" }` line — paste into `ROSTER[]` in `config.h` (delete the
+  placeholder `Tomek` row).
+- a personal link (`.../#n=Mama&k=...`) — **save it**, you'll send it in step 7.
+
+Re-issue a lost link later without touching the roster:
+`node firmware/tools/invite.mjs --name "Mama" --key <their 64-hex k>`.
 
 ## 4. Flash & bench-test  `[YOU]`
 
@@ -59,18 +64,20 @@ Expect: `[wifi] up`, `[time] epoch=...` (non-zero), `[ntfy] connected`.
 Then run bench tests **B1–B6** from the project plan's Verification section:
 
 ```
+# K = Tomek's 64-hex key (from his invite / config.h)
+
 # B1 - remote open
-make test-open NAME=Tomek KEYWORD=<tomek's keyword>
+make test-open NAME=Tomek KEY=$K
 #   -> relay clicks; a line appears in the ntfy app on LOG_TOPIC
 
 # B2 - LAN open
-make test-lan  NAME=Tomek KEYWORD=<tomek's keyword>
+make test-lan  NAME=Tomek KEY=$K
 
 # B3 - rejections (each should print a [reject] reason, no relay)
-node firmware/tools/send-open.mjs --name Tomek --keyword wrong
-node firmware/tools/send-open.mjs --name Tomek --keyword <ok> --ts 1
-node firmware/tools/send-open.mjs --name Nobody --keyword x
-#   replay: run the same --ts twice
+node firmware/tools/send-open.mjs --name Tomek --key $(printf %064d 0)      # bad-sig
+node firmware/tools/send-open.mjs --name Tomek --key $K --ts 1             # stale
+node firmware/tools/send-open.mjs --name Nobody --key $K                   # unknown-user
+#   replay: run "--ts <fixed>" twice with a valid key
 
 # B4 - flood: run test-open ~10x fast, actuations stop at MAX_OPENS_PER_MIN
 # B5 - disable mom's AP 3 min, re-enable: [ntfy] reconnects
@@ -88,14 +95,17 @@ web page, ntfy push).
 - New GitHub repo, push this monorepo.
 - **Settings → Pages → Source: GitHub Actions**. The included
   `.github/workflows/pages.yml` publishes `web/`.
-- The page is at `https://<user>.github.io/<repo>/`. Send everyone the link;
-  each person enters their name + keyword once and can "Add to Home Screen".
+- The page is at `WEB_BASE_URL` + `/`. Check the two topic constants at the top
+  of `web/index.html` match `config.h`.
 
-## 7. Phone clients  `[YOU]` / family
+## 7. Hand out the links  `[YOU]` / family
 
-- Minimum for everyone: the web page PWA.
-- Hands-free: `clients/ios/README.md`, `clients/android/README.md`.
-- Log feed: `clients/ntfy-app/README.md`.
+- **Everyone**: send each person the **personal link** from step 3
+  ("tap this, then Add to Home Screen"). That's the whole setup for a
+  button-only user — no name or key to type.
+- Hands-free (Siri / Assistant / geofence): `clients/ios/README.md`,
+  `clients/android/README.md`.
+- "Who opened it" push feed: `clients/ntfy-app/README.md`.
 
 ## 8. Decommission the old stack  `[YOU]`
 

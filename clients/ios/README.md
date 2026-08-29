@@ -4,7 +4,7 @@ Two ways, pick per person:
 
 | Want | Do |
 |---|---|
-| Just a button | Add the **web page** to the Home Screen (Safari → Share → Add to Home Screen), enter your keyword once. Done. Nothing below needed. |
+| Just a button | Tap your **personal link** (from `make invite`), then Safari → Share → **Add to Home Screen**. Done. Nothing below needed. |
 | "Hey Siri, open mom's garage" / open on arrival / open when I join mom's Wi-Fi | Set up **Scriptable + a Shortcut** (below). |
 
 ## Scriptable + Shortcut
@@ -23,14 +23,17 @@ Free, from the App Store: <https://scriptable.app>
   IP, also set `LAN_URL` to `http://<that-ip>/open` — more reliable than
   `garage.local` on iOS is usually fine, but the IP never fails.
 
-### 3. Store your name + keyword (once)
+### 3. Store your name + key (once)
+
+Your key is the `k=` part of your personal link (64 hex chars), or the value
+next to your name in `firmware/include/config.h`.
 
 At the very top of the script, temporarily add these two lines, run the script
 once (▶), then delete them and Save:
 
 ```js
-Keychain.set("garage_name", "Tomek")       // your roster name
-Keychain.set("garage_keyword", "your-keyword")
+Keychain.set("garage_name", "Tomek")     // your roster name
+Keychain.set("garage_k", "….64 hex….")   // the k= part of your link
 ```
 
 They go into the iOS Keychain, not the script file.
