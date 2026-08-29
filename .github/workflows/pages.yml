@@ -28,18 +28,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # Any of these repo Variables that is set overrides web/config.js.
-      # Settings -> Secrets and variables -> Actions -> Variables.
-      # Leave a Variable unset to keep the committed value.
-      - name: Apply config (env vars override web/config.js)
+      # Each key can be set as a repo Variable OR a repo Secret (Secret wins);
+      # unset -> keep the committed web/config.js value. On a public repo, put
+      # the topics in Secrets so they stay out of git and out of run logs.
+      # Settings -> Secrets and variables -> Actions.
+      - name: Apply config (Secrets/Variables override web/config.js)
         run: node web/apply-config.mjs
         env:
-          DEVICE_NAME: ${{ vars.DEVICE_NAME }}
-          ADMIN_NAME: ${{ vars.ADMIN_NAME }}
-          WEB_LANG: ${{ vars.WEB_LANG }}
-          NTFY_BASE: ${{ vars.NTFY_BASE }}
-          CMD_TOPIC: ${{ vars.CMD_TOPIC }}
-          LOG_TOPIC: ${{ vars.LOG_TOPIC }}
+          DEVICE_NAME: ${{ secrets.DEVICE_NAME || vars.DEVICE_NAME }}
+          ADMIN_NAME: ${{ secrets.ADMIN_NAME || vars.ADMIN_NAME }}
+          WEB_LANG: ${{ secrets.WEB_LANG || vars.WEB_LANG }}
+          NTFY_BASE: ${{ secrets.NTFY_BASE || vars.NTFY_BASE }}
+          CMD_TOPIC: ${{ secrets.CMD_TOPIC || vars.CMD_TOPIC }}
+          LOG_TOPIC: ${{ secrets.LOG_TOPIC || vars.LOG_TOPIC }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

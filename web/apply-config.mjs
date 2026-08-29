@@ -6,7 +6,8 @@
 //   2. Bake the resulting deviceName into index.html + manifest.webmanifest so
 //      the title / home-screen name / manifest are right before JS runs.
 //
-// Run by .github/workflows/pages.yml. Safe to run locally:
+// Run by .github/workflows/pages.yml (from repo Variables and/or Secrets).
+// Safe to run locally:
 //   node web/apply-config.mjs                       (no-op unless env is set)
 //   DEVICE_NAME=Wrota ADMIN_NAME=Tomek node web/apply-config.mjs
 //
