@@ -35,6 +35,7 @@ phone ──► ntfy.sh ──► ESP32 + relay ──► gate opener
 ## Start here
 
 1. `docs/provisioning.md` — the full setup runbook.
+1. `docs/finalize.md` — step-by-step to go live from a fresh repo + deploy.
 2. `docs/wiring.md` — how the ESP32 connects to the opener.
 3. `docs/threat-model.md` — what the signing does and does not protect.
 
