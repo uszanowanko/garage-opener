@@ -1,19 +1,20 @@
 # garage
 
-Standalone garage-door opener for one door at mom's house. No VPS, no domain, no
-subscription, nothing to maintain.
+Standalone opener for one gate/door. No VPS, no domain, no subscription,
+nothing to maintain.
 
 ```
-phone ──► ntfy.sh ──► ESP32 + relay ──► garage opener
-      └─► http://garage.local/open (when on mom's Wi-Fi)
+phone ──► ntfy.sh ──► ESP32 + relay ──► gate opener
+      └─► http://<name>.local/open (when on the local Wi-Fi)
 ```
 
-- **ESP32** at the garage holds a long-lived connection to a random `ntfy.sh`
+- **ESP32** at the gate holds a long-lived connection to a random `ntfy.sh`
   topic and pulses a relay across the opener's manual-button terminals.
 - Every open is signed with a **per-user HMAC** (a 64-hex key per person, sent to
   them once as a setup link) and is replay-protected.
 - A **static web button** (GitHub Pages) replaces the old Next.js app and shows
-  who opened the door and when.
+  who opened it and when. Name + language are set in `web/config.js`
+  (`deviceName`, `lang`); UI strings live in `web/i18n.js` (ships `en` + `pl`).
 - Phones can also open it hands-free via Siri / Google Assistant / geofence
   (see `clients/`).
 
@@ -21,8 +22,8 @@ phone ──► ntfy.sh ──► ESP32 + relay ──► garage opener
 
 | Path | What |
 |---|---|
-| `firmware/` | ESP32 sketch (PlatformIO), config template, enrol + test tools |
-| `web/` | `index.html` served by GitHub Pages |
+| `firmware/` | ESP32 sketch (PlatformIO), config template, invite + test tools |
+| `web/` | `index.html` + `config.js` (name/lang/topics) + `i18n.js`, on GitHub Pages |
 | `clients/ios/` | Scriptable script + Shortcut instructions |
 | `clients/android/` | HTTP Shortcuts import + instructions |
 | `clients/ntfy-app/` | subscribe to the log feed |

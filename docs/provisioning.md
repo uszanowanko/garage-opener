@@ -17,22 +17,37 @@ command does it.
 make topics
 ```
 
-Copy the two values into **three** places:
+Copy the two values into **two** places:
 
-| Value | `firmware/include/config.h` | `web/index.html` | clients |
-|---|---|---|---|
-| `CMD_TOPIC` | `#define CMD_TOPIC` | `const CMD_TOPIC` | `signer.js`, Android shortcut URL |
-| `LOG_TOPIC` | `#define LOG_TOPIC` | `const LOG_TOPIC` | ntfy app subscription |
+| Value | `firmware/include/config.h` | `web/config.js` |
+|---|---|---|
+| `CMD_TOPIC` | `#define CMD_TOPIC` | `cmdTopic` |
+| `LOG_TOPIC` | `#define LOG_TOPIC` | `logTopic` |
 
-## 2. Config  `[YOU]`
+(The clients also need `CMD_TOPIC` — set later in their own READMEs.)
 
-```
-cp firmware/include/config.example.h firmware/include/config.h
-```
+## 2. Name, language, config  `[YOU]`
 
-Fill in: `WIFI_SSID/PASS`, `STATIC_IP` (+ matching DHCP reservation on mom's
-router), `TZ_STRING`, the two topics, `OTA_PASSWORD`, and check the GPIOs match
-your wiring.
+**`web/config.js`** — edit in place:
+
+| Field | What |
+|---|---|
+| `deviceName` | shown as the title, heading, and installed-app name (e.g. `"Wrota"`) |
+| `adminName` | fills "the personal link **{name}** sent you" — `""` → a translated fallback |
+| `lang` | `"auto"` (follow the phone) or pin `"en"` / `"pl"` / … |
+
+**`firmware/include/config.h`** (`cp` from `config.example.h` first):
+
+- `WIFI_SSID/PASS`, `STATIC_IP` (+ DHCP reservation), `TZ_STRING`, the two
+  topics, `OTA_PASSWORD`, `WEB_BASE_URL`, GPIOs.
+- `MDNS_HOST` — lowercase hostname → `http://<host>.local/` (e.g. `"wrota"`).
+- `DEVICE_NAME` — ASCII name used in the ntfy log-notification title.
+- `LOG_ACTION` / `LOG_STATE_*` — the wording of the log line; Polish examples
+  are in `config.example.h`.
+
+**Languages**: `web/i18n.js` ships `en` + `pl`. Add one by adding a top-level
+key — the switcher and auto-detect pick it up. The iOS `signer.js` has its own
+small `MSG` table (`LANG` near the top).
 
 ## 3. Invite everyone  `[YOU]`
 
@@ -94,9 +109,10 @@ web page, ntfy push).
 
 - New GitHub repo, push this monorepo.
 - **Settings → Pages → Source: GitHub Actions**. The included
-  `.github/workflows/pages.yml` publishes `web/`.
-- The page is at `WEB_BASE_URL` + `/`. Check the two topic constants at the top
-  of `web/index.html` match `config.h`.
+  `.github/workflows/pages.yml` bakes `deviceName` into the static files and
+  publishes `web/`.
+- The page is at `WEB_BASE_URL` + `/`. Confirm `web/config.js` topics match
+  `config.h`.
 
 ## 7. Hand out the links  `[YOU]` / family
 

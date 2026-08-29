@@ -6,6 +6,8 @@ on:
     paths: ["web/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
+# web/** already covers config.js, i18n.js and apply-config.mjs
+
 permissions:
   contents: read
   pages: write
@@ -23,6 +25,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Bake deviceName into static files
+        run: node web/apply-config.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,6 +1,6 @@
 {
-  "name": "Mom's garage",
-  "short_name": "Garage",
+  "name": "Gate",
+  "short_name": "Gate",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

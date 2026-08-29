@@ -1,18 +1,20 @@
 // ===========================================================================
-// Scriptable script: "Garage"  -  https://scriptable.app  (free)
+// Scriptable script  -  https://scriptable.app  (free)
 //
-// Opens mom's garage. Run it from a Shortcut, Siri ("open mom's garage"),
-// the home screen, or an automation (Arrive / Join Wi-Fi).
+// Opens the gate. Run it from a Shortcut, Siri, the home screen, or an
+// automation (Arrive / Join Wi-Fi).
 //
 // ---- ONE-TIME SETUP (run this once, then delete these 2 lines) --------------
 //   Keychain.set("garage_name", "Tomek")   // your roster name
 //   Keychain.set("garage_k", "….64 hex…")  // the k= part of your personal link
 // ---------------------------------------------------------------------------
 //
-// CONFIG - fill from `make topics` (same values as firmware + web):
+// CONFIG - match firmware + web:
+const DEVICE_NAME = "Wrota";
+const LANG = "pl";                             // "en" | "pl" (see MSG below)
 const NTFY = "https://ntfy.sh";
-const CMD_TOPIC = "garage-REPLACE_WITH_RANDOM_HEX";
-const LAN_URL = "http://garage.local/open";   // or http://192.168.1.50/open
+const CMD_TOPIC = "gate-REPLACE_WITH_RANDOM_HEX";
+const LAN_URL = "http://wrota.local/open";     // or http://192.168.1.50/open
 const LAN_TIMEOUT_S = 2.5;
 // ---------------------------------------------------------------------------
 
@@ -153,6 +155,28 @@ var GarageCrypto = (function () {
 
 // ^^^  end generated crypto  ^^^
 
+const MSG = {
+  en: {
+    opening: "{name} opening",
+    rejected: "{name} rejected the request ({code})",
+    unreachable: "Can't reach {name}",
+    notset: "{name} isn't set up on this phone",
+  },
+  pl: {
+    opening: "Otwieram: {name}",
+    rejected: "{name}: żądanie odrzucone ({code})",
+    unreachable: "Brak połączenia z: {name}",
+    notset: "{name} nie jest skonfigurowane na tym telefonie",
+  },
+};
+const M = MSG[LANG] || MSG.en;
+const say = (key, vars) => {
+  let s = M[key];
+  const all = Object.assign({ name: DEVICE_NAME }, vars || {});
+  for (const k in all) s = s.split("{" + k + "}").join(all[k]);
+  return s;
+};
+
 async function post(url, body, timeoutS) {
   const r = new Request(url);
   r.method = "POST";
@@ -166,24 +190,23 @@ async function post(url, body, timeoutS) {
 async function run() {
   const name = Keychain.contains("garage_name") ? Keychain.get("garage_name") : null;
   const k = Keychain.contains("garage_k") ? Keychain.get("garage_k") : null;
-  if (!name || !k) return "Garage is not set up on this phone";
+  if (!name || !k) return say("notset");
 
   const ts = Math.floor(Date.now() / 1000);
   const sig = GarageCrypto.hmacSha256Hex(k, "v1:" + ts + ":" + name);
   const body = "v1;" + ts + ";" + name + ";" + sig;
 
-  // Try the LAN path first: instant on mom's Wi-Fi and works with her
-  // internet down. Fails fast elsewhere, then we fall back to ntfy.
+  // LAN first: instant on Wi-Fi and works with the house internet down.
   try {
     const code = await post(LAN_URL, body, LAN_TIMEOUT_S);
-    return code >= 200 && code < 300 ? "Garage opening" : "Garage rejected it (" + code + ")";
+    return code >= 200 && code < 300 ? say("opening") : say("rejected", { code });
   } catch (e) { /* not on the LAN */ }
 
   try {
     const code = await post(NTFY + "/" + CMD_TOPIC, body);
-    return code >= 200 && code < 300 ? "Garage opening" : "Garage rejected it (" + code + ")";
+    return code >= 200 && code < 300 ? say("opening") : say("rejected", { code });
   } catch (e) {
-    return "Garage: could not reach it";
+    return say("unreachable");
   }
 }
 
@@ -192,7 +215,7 @@ try { Script.setShortcutOutput(message); } catch (e) {}
 
 if (config.runsInApp || config.runsFromHomeScreen) {
   const n = new Notification();
-  n.title = "Garage";
+  n.title = DEVICE_NAME;
   n.body = message;
   await n.schedule();
 }

@@ -5,7 +5,7 @@ Two ways, pick per person:
 | Want | Do |
 |---|---|
 | Just a button | Tap your **personal link** (from `make invite`), then Chrome → ⋮ → **Add to Home screen**. Done. |
-| "Hey Google, open mom's garage" / open on arrival / a home-screen widget | **HTTP Shortcuts** (below). |
+| "Hey Google, <your phrase>" / open on arrival / a home-screen widget | **HTTP Shortcuts** (below). |
 
 ## HTTP Shortcuts
 
@@ -13,7 +13,7 @@ Free & open source: <https://http-shortcuts.rmy.ch> (Play Store: "HTTP Shortcuts
 
 ### 1. Create the shortcut
 
-- **＋** → **New Shortcut** → name **Open Mom's Garage**.
+- **＋** → **New Shortcut** → name it in your language (e.g. **Otwórz wrota**).
 - Method **POST**, URL `https://ntfy.sh/<CMD_TOPIC>` (your real topic — same as
   `firmware/include/config.h` and the web page).
 - **Request Body** → **Custom text**, content type `text/plain`, body:
@@ -30,9 +30,9 @@ Shortcut → **Scripting** → **Run before execution** → paste
 `prepare-request.js` from this folder. Set `NAME` and `K` (the `k=` part of your
 personal link) at the top.
 
-### 3. LAN fast path (optional, works with mom's internet down)
+### 3. LAN fast path (optional, works with the local internet down)
 
-Duplicate the shortcut as **Open Mom's Garage (LAN)** with URL
+Duplicate the shortcut as **<your shortcut> (LAN)** with URL
 `http://<esp32-static-ip>/open`. Either add it to a folder, or in the main
 shortcut's script check Wi-Fi and change the URL:
 
@@ -43,10 +43,10 @@ if (getWifiSSID() === "mom-wifi") changeUrl("http://192.168.1.50/open");
 ### 4. Triggers
 
 - **Widget**: long-press home screen → Widgets → HTTP Shortcuts → place
-  *Open Mom's Garage*. One tap.
+  your shortcut. One tap.
 - **Geofence**: shortcut → **Trigger & Scheduling** → **Add trigger** →
-  **Location** → mom's address. Opens automatically on arrival.
-- **"Hey Google, open mom's garage"**: HTTP Shortcuts registers shortcuts with
+  **Location** → the gate's address. Opens automatically on arrival.
+- **"Hey Google, <your phrase>"**: HTTP Shortcuts registers shortcuts with
   Google Assistant / the system. Say the phrase, or add it as a routine
   (Google Home app → Routines → *add action* → *Try adding your own* → the
   shortcut). Also works from Android Auto by voice.
@@ -54,6 +54,6 @@ if (getWifiSSID() === "mom-wifi") changeUrl("http://192.168.1.50/open");
 ## Notes
 
 - If opens fail, check the phone clock is automatic — skew over 60 s is rejected.
-- `hash()` / `hmac()` are built into HTTP Shortcuts' scripting. If your version
-  behaves differently (`bad-sig` in the ESP32 log), `prepare-request.js` has a
-  drop-in self-contained fallback.
+- `hmac()` is built into HTTP Shortcuts' scripting. If your version behaves
+  differently (`bad-sig` in the ESP32 log), `prepare-request.js` has a drop-in
+  self-contained fallback.

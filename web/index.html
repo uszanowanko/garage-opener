@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Garage</title>
+<title>Gate</title>
 <meta name="theme-color" content="#111417">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Garage">
+<meta name="apple-mobile-web-app-title" content="Gate">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="icon" href="icon.svg">
 <link rel="manifest" href="manifest.webmanifest">
@@ -34,7 +34,12 @@
     display: flex; flex-direction: column; align-items: center;
   }
   main { width: 100%; max-width: 420px; flex: 1; display: flex; flex-direction: column; }
-  h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: .01em; margin: 4px 0 20px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 20px; }
+  h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: .01em; margin: 0; }
+  select#lang {
+    font: inherit; font-size: .85rem; color: var(--muted);
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px;
+  }
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 16px;
     padding: 20px; margin-bottom: 16px;
@@ -70,25 +75,26 @@
 </head>
 <body>
 <main>
-  <h1>Mom's garage</h1>
+  <div class="top">
+    <h1 id="title">Gate</h1>
+    <select id="lang" aria-label="Language"></select>
+  </div>
 
   <!-- no credentials, no invite link in the URL -->
   <section id="invite" class="card" hidden>
-    <p style="margin-top:0">This device isn't set up yet.</p>
-    <p class="muted">Open the personal link Tomek sent you &mdash; it sets this up
-      automatically. Then use Share &rarr; <b>Add to Home Screen</b> so it's one tap.</p>
-    <p class="muted" style="margin-bottom:0"><a href="#" id="manualLink">set up manually</a></p>
+    <p style="margin-top:0" data-i18n="invite.title"></p>
+    <p class="muted" id="inviteBody"></p>
+    <p class="muted" style="margin-bottom:0"><a href="#" id="manualLink" data-i18n="invite.manual"></a></p>
   </section>
 
-  <!-- manual fallback (for Tomek / a reinstall without the link) -->
+  <!-- manual fallback -->
   <section id="setup" class="card" hidden>
-    <p class="muted" style="margin-top:0">Manual setup. The key is stored only in
-      this browser and is never uploaded.</p>
-    <label for="name">Name (must match the roster)</label>
+    <p class="muted" style="margin-top:0" data-i18n="setup.intro"></p>
+    <label for="name" data-i18n="setup.name"></label>
     <input id="name" autocomplete="off" autocapitalize="words" spellcheck="false">
-    <label for="key">Key &mdash; 64 hex characters (from <code>make invite</code>)</label>
+    <label for="key" data-i18n="setup.key"></label>
     <input id="key" type="password" autocomplete="off" spellcheck="false">
-    <button id="save" style="margin-top:16px; width:100%">Save</button>
+    <button id="save" style="margin-top:16px; width:100%" data-i18n="setup.save"></button>
     <p id="setupErr" class="muted" style="color:var(--err)"></p>
   </section>
 
@@ -98,34 +104,31 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 10 12 4l9 6v10H3z"/><path d="M7 20v-7h10v7"/>
       </svg>
-      Open
+      <span id="openLabel"></span>
     </button>
     <div id="status"></div>
 
     <div class="card" style="margin-top:16px">
       <div class="row">
-        <strong>Recent</strong>
-        <button id="refresh" class="muted" style="padding:4px 10px; font-size:.8rem">Refresh</button>
+        <strong data-i18n="app.recent"></strong>
+        <button id="refresh" class="muted" style="padding:4px 10px; font-size:.8rem" data-i18n="app.refresh"></button>
       </div>
-      <ul id="log"><li class="muted">Loading&hellip;</li></ul>
-      <p class="muted" style="margin-bottom:0">History is kept ~12&nbsp;h.</p>
+      <ul id="log"></ul>
+      <p class="muted" style="margin-bottom:0" data-i18n="app.retention"></p>
     </div>
 
     <footer class="muted">
-      Signed in as <b id="who"></b> &middot;
-      <a href="#" id="forget">reset this device</a>
+      <span id="signedIn"></span> &middot; <a href="#" id="forget" data-i18n="app.reset"></a>
     </footer>
   </section>
 </main>
 
+<script src="config.js"></script>
+<script src="i18n.js"></script>
 <script>
-// ---------------------------------------------------------------------------
-// CONFIG - fill these in from `make topics` (also in firmware/include/config.h)
-// ---------------------------------------------------------------------------
-const NTFY = "https://ntfy.sh";
-const CMD_TOPIC = "garage-REPLACE_WITH_RANDOM_HEX";
-const LOG_TOPIC = "garage-REPLACE_WITH_OTHER_RANDOM_HEX";
-// ---------------------------------------------------------------------------
+const cfg = window.GARAGE_CONFIG || {};
+const I18N = window.GARAGE_I18N || { en: {} };
+const LANGS = Object.keys(I18N);
 
 const $ = (id) => document.getElementById(id);
 const enc = new TextEncoder();
@@ -133,22 +136,79 @@ const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padSta
 const HEX64 = /^[0-9a-f]{64}$/;
 const validName = (n) => !!n && n.length <= 31 && !/[;:]/.test(n) && !/[\x00-\x1f\x7f]/.test(n);
 
-// HMAC key is the ASCII bytes of the hex string k - see docs/protocol.md
-async function hmacHex(kHex, msg) {
-  const key = await crypto.subtle.importKey(
-    "raw", enc.encode(kHex), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return toHex(await crypto.subtle.sign("HMAC", key, enc.encode(msg)));
-}
-
-const store = {
-  get name() { try { return localStorage.getItem("garage_name"); } catch { return null; } },
-  get k() { try { return localStorage.getItem("garage_k"); } catch { return null; } },
-  set(name, k) { try { localStorage.setItem("garage_name", name); localStorage.setItem("garage_k", k); } catch {} },
-  clear() { try { localStorage.removeItem("garage_name"); localStorage.removeItem("garage_k"); } catch {} },
+const safeLS = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
-// Personal setup link: .../#n=<name>&k=<64hex> (query string also tolerated).
-// On success we store the creds and scrub them from the URL + history.
+// ---- language -------------------------------------------------------------
+function resolveLang() {
+  const stored = safeLS.get("garage_lang");
+  if (stored && LANGS.includes(stored)) return stored;
+  const pinned = (cfg.lang || "auto").toLowerCase();
+  if (pinned !== "auto" && LANGS.includes(pinned)) return pinned;
+  for (const l of navigator.languages || [navigator.language || "en"]) {
+    const base = String(l).toLowerCase().split("-")[0];
+    if (LANGS.includes(base)) return base;
+  }
+  return LANGS.includes("en") ? "en" : LANGS[0];
+}
+let LANG = resolveLang();
+
+function t(key, vars) {
+  let s = (I18N[LANG] && I18N[LANG][key]) ?? (I18N.en && I18N.en[key]) ?? key;
+  if (vars) for (const k in vars) s = s.replaceAll("{" + k + "}", vars[k]);
+  return s;
+}
+
+// ---- manifest / title (installed-app name) --------------------------------
+function applyChrome() {
+  const name = cfg.deviceName || "Gate";
+  document.documentElement.lang = LANG;
+  document.title = name;
+  $("title").textContent = name;
+  const apple = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (apple) apple.content = name;
+  try {
+    const m = {
+      name, short_name: name, start_url: "./", scope: "./", display: "standalone",
+      background_color: "#111417", theme_color: "#111417",
+      icons: [{ src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
+    };
+    const link = document.querySelector('link[rel="manifest"]');
+    if (link) link.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: "application/manifest+json" }));
+  } catch {}
+}
+
+function applyI18n() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.getAttribute("data-i18n"));
+  });
+  $("openLabel").textContent = t("app.open");
+  $("inviteBody").textContent = t("invite.body", { admin: cfg.adminName || t("invite.adminFallback") });
+  if (store.name) $("signedIn").textContent = t("app.signedInAs", { name: store.name });
+}
+
+// language switcher
+LANGS.forEach((code) => {
+  const o = document.createElement("option");
+  o.value = code;
+  o.textContent = (I18N[code] && I18N[code]["lang.name"]) || code;
+  $("lang").appendChild(o);
+});
+$("lang").value = LANG;
+$("lang").onchange = () => { safeLS.set("garage_lang", $("lang").value); LANG = $("lang").value; applyChrome(); applyI18n(); render(); };
+
+// ---- credentials ---------------------------------------------------------
+const store = {
+  get name() { return safeLS.get("garage_name"); },
+  get k() { return safeLS.get("garage_k"); },
+  set(name, k) { safeLS.set("garage_name", name); safeLS.set("garage_k", k); },
+  clear() { safeLS.del("garage_name"); safeLS.del("garage_k"); },
+};
+
+// personal setup link: .../#n=<name>&k=<64hex>  (query string also tolerated)
 function provisionFromUrl() {
   for (const raw of [location.hash.slice(1), location.search.slice(1)]) {
     if (!raw) continue;
@@ -164,38 +224,41 @@ function provisionFromUrl() {
   return false;
 }
 
-function show() {
+function render() {
   if (!(store.name && store.k)) provisionFromUrl();
   const ready = !!(store.name && store.k);
   $("app").hidden = !ready;
   $("invite").hidden = ready;
   $("setup").hidden = true;
-  if (ready) { $("who").textContent = store.name; loadLog(); }
+  if (ready) {
+    $("signedIn").textContent = t("app.signedInAs", { name: store.name });
+    loadLog();
+  }
 }
 
-$("manualLink").onclick = (e) => {
-  e.preventDefault();
-  $("invite").hidden = true;
-  $("setup").hidden = false;
-};
+// HMAC key is the ASCII bytes of the hex string k - see docs/protocol.md
+async function hmacHex(kHex, msg) {
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(kHex), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return toHex(await crypto.subtle.sign("HMAC", key, enc.encode(msg)));
+}
+
+$("manualLink").onclick = (e) => { e.preventDefault(); $("invite").hidden = true; $("setup").hidden = false; };
 
 $("save").onclick = () => {
   const name = $("name").value.trim();
   const key = $("key").value.trim().toLowerCase();
   $("setupErr").textContent = "";
-  if (!validName(name)) { $("setupErr").textContent = "Name: 1-31 chars, no ';' or ':'."; return; }
-  if (!HEX64.test(key)) { $("setupErr").textContent = "Key must be 64 hex characters."; return; }
+  if (!validName(name)) { $("setupErr").textContent = t("setup.errName"); return; }
+  if (!HEX64.test(key)) { $("setupErr").textContent = t("setup.errKey"); return; }
   store.set(name, key);
   $("key").value = "";
-  show();
+  render();
 };
 
 $("forget").onclick = (e) => {
   e.preventDefault();
-  if (confirm("Reset this device? You'll need your personal link again.")) {
-    store.clear();
-    show();
-  }
+  if (confirm(t("app.resetConfirm"))) { store.clear(); render(); }
 };
 
 let busy = false;
@@ -203,21 +266,21 @@ $("open").onclick = async () => {
   if (busy) return;
   busy = true;
   $("open").disabled = true;
-  setStatus("Sending…", "");
+  setStatus(t("app.sending"), "");
   try {
     const ts = Math.floor(Date.now() / 1000);
     const name = store.name;
     const sig = await hmacHex(store.k, `v1:${ts}:${name}`);
-    const res = await fetch(`${NTFY}/${CMD_TOPIC}`, {
+    const res = await fetch(`${cfg.ntfy}/${cfg.cmdTopic}`, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: `v1;${ts};${name};${sig}`,
     });
     if (!res.ok) throw new Error(`ntfy ${res.status}`);
-    setStatus("Sent. Opening…", "ok");
+    setStatus(t("app.sent"), "ok");
     setTimeout(loadLog, 2500);
   } catch (err) {
-    setStatus("Failed: " + err.message, "err");
+    setStatus(t("app.failed", { msg: err.message }), "err");
   } finally {
     setTimeout(() => { busy = false; $("open").disabled = false; }, 3000);
   }
@@ -233,34 +296,37 @@ $("refresh").onclick = loadLog;
 
 async function loadLog() {
   const ul = $("log");
+  ul.innerHTML = `<li class="muted">${t("app.loading")}</li>`;
   try {
-    const res = await fetch(`${NTFY}/${LOG_TOPIC}/json?poll=1&since=12h`);
+    const res = await fetch(`${cfg.ntfy}/${cfg.logTopic}/json?poll=1&since=12h`);
     const text = await res.text();
     const rows = text.trim().split("\n").filter(Boolean)
       .map((l) => { try { return JSON.parse(l); } catch { return null; } })
       .filter((m) => m && m.event === "message")
       .sort((a, b) => b.time - a.time)
       .slice(0, 10);
-    if (!rows.length) { ul.innerHTML = '<li class="muted">No opens in the last 12 h.</li>'; return; }
+    if (!rows.length) { ul.innerHTML = `<li class="muted">${t("app.noRecent")}</li>`; return; }
     ul.innerHTML = rows.map((m) =>
       `<li>${escapeHtml(m.message)}<time>${rel(m.time)}</time></li>`).join("");
   } catch {
-    ul.innerHTML = '<li class="muted">Could not load history.</li>';
+    ul.innerHTML = `<li class="muted">${t("app.histError")}</li>`;
   }
 }
 
 function rel(epoch) {
   const s = Math.max(0, Math.floor(Date.now() / 1000 - epoch));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  if (s < 60) return t("time.justNow");
+  if (s < 3600) return t("time.minAgo", { n: Math.floor(s / 60) });
+  if (s < 86400) return t("time.hAgo", { n: Math.floor(s / 3600) });
   return new Date(epoch * 1000).toLocaleString();
 }
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-show();
+applyChrome();
+applyI18n();
+render();
 </script>
 </body>
 </html>

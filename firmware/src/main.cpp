@@ -96,14 +96,27 @@ static void relayWrite(bool active) {
   digitalWrite(RELAY_GPIO, level ? HIGH : LOW);
 }
 
-static const char *doorState() {
+// -1 unknown, 0 closed, 1 open
+static int doorOpen() {
 #if SENSOR_GPIO < 0
-  return "unknown";
+  return -1;
 #else
   int v = digitalRead(SENSOR_GPIO);
   bool open = SENSOR_OPEN_WHEN_HIGH ? (v == HIGH) : (v == LOW);
-  return open ? "open" : "closed";
+  return open ? 1 : 0;
 #endif
+}
+
+// canonical, for the /state JSON API
+static const char *doorState() {
+  int d = doorOpen();
+  return d < 0 ? "unknown" : (d ? "open" : "closed");
+}
+
+// localised, for the ntfy log line
+static const char *doorStateText() {
+  int d = doorOpen();
+  return d < 0 ? LOG_STATE_UNKNOWN : (d ? LOG_STATE_OPEN : LOG_STATE_CLOSED);
 }
 
 // flood guard: rolling count of actuations in the last 60 s
@@ -142,14 +155,14 @@ static void postLog(const String &name) {
   struct tm tmv;
   if (localtime_r(&now, &tmv)) strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M", &tmv);
 
-  // "<name> opened the garage @ <time> — door now <state>"
-  String body = name + " opened the garage @ " + tbuf +
-                " \xE2\x80\x94 door now " + doorState();
+  // "<name> <LOG_ACTION> @ <time> <LOG_STATE_PREFIX> <state>"
+  String body = name + " " LOG_ACTION " @ " + tbuf + " " LOG_STATE_PREFIX " " +
+                doorStateText();
 
   String req = String("POST /") + LOG_TOPIC + " HTTP/1.1\r\n" +
                "Host: " + NTFY_HOST + "\r\n" +
                "User-Agent: garage-esp32\r\n" +
-               "Title: garage\r\n" +
+               "Title: " DEVICE_NAME "\r\n" +
                "Content-Type: text/plain; charset=utf-8\r\n" +
                "Content-Length: " + body.length() + "\r\n" +
                "Connection: close\r\n\r\n" + body;
@@ -404,7 +417,7 @@ static WebServer server(80);
 static void handleRoot() {
   String h =
       "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
-      "<title>garage</title><h2>garage controller</h2><p>door: <b>" +
+      "<title>" DEVICE_NAME "</title><h2>" DEVICE_NAME " controller</h2><p>door: <b>" +
       String(doorState()) + "</b></p><p>ntfy: " +
       (streamUp ? "connected" : "reconnecting") + "</p><p>uptime: " +
       String(millis() / 1000) + " s</p>"
@@ -472,7 +485,7 @@ static void wifiConnect() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n[boot] garage controller");
+  Serial.println("\n[boot] " DEVICE_NAME " controller");
 
   pinMode(RELAY_GPIO, OUTPUT);
   relayWrite(false);  // inactive as early as possible

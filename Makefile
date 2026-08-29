@@ -12,11 +12,11 @@ help:
 	@echo "flash      - compile + upload over USB   (PORT=/dev/ttyUSB0 to force)"
 	@echo "monitor    - serial console at 115200"
 	@echo "test-open  - send a signed open via ntfy   (NAME=.. KEY=..)"
-	@echo "test-lan   - send a signed open to http://garage.local/open"
+	@echo "test-lan   - send a signed open to http://<name>.local/open"
 
 topics:
-	@echo "CMD_TOPIC = garage-$$(openssl rand -hex 24)"
-	@echo "LOG_TOPIC = garage-$$(openssl rand -hex 24)"
+	@echo "CMD_TOPIC = gate-$$(openssl rand -hex 24)"
+	@echo "LOG_TOPIC = gate-$$(openssl rand -hex 24)"
 
 invite:
 	@node $(FW)/tools/invite.mjs $(if $(NAME),--name "$(NAME)",)

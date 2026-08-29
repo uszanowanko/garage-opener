@@ -5,7 +5,7 @@ Two ways, pick per person:
 | Want | Do |
 |---|---|
 | Just a button | Tap your **personal link** (from `make invite`), then Safari → Share → **Add to Home Screen**. Done. Nothing below needed. |
-| "Hey Siri, open mom's garage" / open on arrival / open when I join mom's Wi-Fi | Set up **Scriptable + a Shortcut** (below). |
+| "Hey Siri, <your phrase>" / open on arrival / open when I join the local Wi-Fi | Set up **Scriptable + a Shortcut** (below). |
 
 ## Scriptable + Shortcut
 
@@ -18,10 +18,9 @@ Free, from the App Store: <https://scriptable.app>
 - Open Scriptable → **＋** (new script) → name it `Garage`.
 - Open `signer.js` from this folder, copy **everything**, paste it in, replacing
   the empty script.
-- Near the top, set `CMD_TOPIC` to your real topic (same value as
-  `firmware/include/config.h` / the web page). If you gave the ESP32 a static
-  IP, also set `LAN_URL` to `http://<that-ip>/open` — more reliable than
-  `garage.local` on iOS is usually fine, but the IP never fails.
+- Near the top set: `CMD_TOPIC` (same as `config.h` / `web/config.js`),
+  `DEVICE_NAME`, `LANG` (`"en"` / `"pl"`), and `LAN_URL` — use
+  `http://<static-ip>/open` if you set one, it never fails to resolve.
 
 ### 3. Store your name + key (once)
 
@@ -40,22 +39,22 @@ They go into the iOS Keychain, not the script file.
 
 ### 4. Make the Shortcut
 
-Shortcuts app → **＋** → Add Action → **Run Script** (Scriptable) → choose
-`Garage`. Turn on **Run Script In App** = off if offered. Name the Shortcut
-**Open Mom's Garage**.
+Shortcuts app → **＋** → Add Action → **Run Script** (Scriptable) → choose your
+script. Turn on **Run Script In App** = off if offered. **Name the Shortcut in
+your language** — that name becomes the Siri phrase (e.g. "Otwórz wrota").
 
 - **Siri / CarPlay**: the Shortcut name *is* the phrase — say
-  "Hey Siri, Open Mom's Garage" from the car.
+  "Hey Siri, &lt;that name&gt;" from the car.
 - Add to Home Screen / Lock Screen / Action Button as you like.
 
 ### 5. Automations (optional, hands-free)
 
 Shortcuts → **Automation** → **＋**:
 
-- **Arrive** → mom's address, radius small → Run `Open Mom's Garage` →
+- **Arrive** → the gate's address, radius small → Run your shortcut →
   **Ask Before Running: Off**.
-- **Wi-Fi** → When I join mom's network → same. (Fires closer in but is rock
-  solid and works even if mom's internet is down — the script tries the LAN
+- **Wi-Fi** → When I join the local Wi-Fi → same. (Fires closer in but is rock
+  solid and works even if the local internet is down — the script tries the LAN
   path first.)
 
 ## Notes
