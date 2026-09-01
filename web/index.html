@@ -302,15 +302,26 @@ function setStatus(msg, cls) {
 $("refresh").onclick = loadLog;
 
 // There is no door sensor - the ESP32 only ever knows "I pulsed the relay",
-// never whether that opened or closed the gate. So open/closed here is a
-// guess from timing, not a fact: assume one button toggles the gate
-// (closed -> open -> closed -> ...), and that a deliberate open->close cycle
-// takes ~20-25s. Two actuations closer together than that are the same
-// person re-clicking, not a real second toggle - flag the later one(s) as a
-// "burst" and don't let them flip the open/closed guess. If a `state` field
-// IS present and isn't "unknown" (e.g. a future build with a real sensor),
-// trust it instead of guessing.
-const BURST_GAP_S = 15;
+// never whether that opened or closed the gate, and other physical remotes
+// can also move the gate without logging anything at all. So open/closed
+// here is always a guess, never a fact, and it has to tolerate silent state
+// changes it can't see. Two thresholds:
+//
+//   BURST_GAP_S  another actuation this soon after the last real one is the
+//                same person re-clicking, not a new action - definitely a
+//                burst, ignored (doesn't move anything below forward).
+//   LONG_GAP_S   after a silence at least this long, assume the gate is
+//                closed and this is a fresh arrival opening it, regardless
+//                of what plain alternation would say.
+//
+// Between the two: alternate from the previous real actuation's guess (the
+// natural close/open that follows it). Plain alternation alone would drift
+// forever the first time a physical remote changes the gate unseen; the
+// LONG_GAP_S resync is what makes it self-correct instead - within one
+// long-enough gap, not never. Accepted as right often enough, not always
+// (e.g. the 1% where the gate really was left open past LONG_GAP_S).
+const BURST_GAP_S = 20;
+const LONG_GAP_S = 120;
 
 // Mutates rows in place with `.burst` and `.guess` ("open"/"closed").
 // Bursts are measured from the last *real* (non-burst) actuation, so a chain
@@ -318,16 +329,19 @@ const BURST_GAP_S = 15;
 function classify(rows) {
   const asc = [...rows].sort((a, b) => a.time - b.time);
   let lastRealTime = -Infinity;
-  let next = "open";  // assume the gate starts closed
+  let lastGuess = "closed";  // irrelevant: the first row's gap is Infinity -> resync
   for (const row of asc) {
-    if (row.time - lastRealTime < BURST_GAP_S) {
+    const gap = row.time - lastRealTime;
+    if (gap < BURST_GAP_S) {
       row.burst = true;
       continue;
     }
-    lastRealTime = row.time;
     const known = row.state === "open" || row.state === "closed";
-    row.guess = known ? row.state : next;
-    next = row.guess === "open" ? "closed" : "open";
+    row.guess = known ? row.state
+      : gap >= LONG_GAP_S ? "open"
+      : (lastGuess === "open" ? "closed" : "open");
+    lastRealTime = row.time;
+    lastGuess = row.guess;
   }
   return rows;
 }
