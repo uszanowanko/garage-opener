@@ -2,7 +2,7 @@
 // See ../docs/extended-log.md for how to deploy this.
 //
 // Bindings this Worker needs (set in wrangler.toml / dashboard):
-//   LOGS          KV namespace  - stores the log entries
+//   GARAGE_LOGS   KV namespace  - stores the log entries
 //   LOG_WRITE_KEY secret        - shared with the ESP32's CF_LOG_KEY
 //
 // Routes:
@@ -41,7 +41,7 @@ export default {
     }
 
     if (request.method === "GET") {
-      const raw = await env.LOGS.get(KV_KEY);
+      const raw = await env.GARAGE_LOGS.get(KV_KEY);
       const all = raw ? JSON.parse(raw) : [];
       const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10) || 10));
       return respond(JSON.stringify(all.slice(0, limit)), 200, { "Content-Type": "application/json" });
@@ -62,10 +62,10 @@ export default {
       const state = STATES.has(entry.state) ? entry.state : "unknown";
       if (!name) return respond("empty name", 400);
 
-      const raw = await env.LOGS.get(KV_KEY);
+      const raw = await env.GARAGE_LOGS.get(KV_KEY);
       const all = raw ? JSON.parse(raw) : [];
       all.unshift({ name, time, state });
-      await env.LOGS.put(KV_KEY, JSON.stringify(all.slice(0, MAX_ENTRIES)));
+      await env.GARAGE_LOGS.put(KV_KEY, JSON.stringify(all.slice(0, MAX_ENTRIES)));
       return respond(null, 204);
     }
 

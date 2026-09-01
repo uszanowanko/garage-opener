@@ -6,7 +6,7 @@ main = "worker.js"
 compatibility_date = "2024-01-01"
 
 kv_namespaces = [
-  { binding = "LOGS", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
+  { binding = "GARAGE_LOGS", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
 ]
 
 # LOG_WRITE_KEY is a secret, not set here:

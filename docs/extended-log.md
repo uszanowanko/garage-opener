@@ -59,7 +59,7 @@ or `npx wrangler ...` without installing globally).
 ```
 cd cloudflare
 wrangler login
-wrangler kv namespace create LOGS
+wrangler kv namespace create GARAGE_LOGS
 ```
 
 Copy the printed `id` into `wrangler.toml`'s `kv_namespaces` entry (replacing
