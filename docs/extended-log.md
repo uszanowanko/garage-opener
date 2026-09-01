@@ -23,17 +23,21 @@ ever want to leave free public services behind entirely — this is not that.
   12h window and says so under the list.
 - Nothing about `CMD_TOPIC` / signing / actuation changes. This is
   logging-only.
-- Every log entry (Worker or ntfy) now carries the door sensor's state
-  (`open` / `closed` / `unknown`) right after that actuation, not just a
-  human sentence. The web app uses it to show a small icon per entry instead
-  of a full sentence — up-arrow (opened), down-arrow (closed), a bolt icon
-  for a "burst" (two actuations closer together than `BURST_GAP_S` in
-  `web/index.html`, i.e. someone re-clicking impatiently rather than a real
-  second action — tune that constant if your gate's open/close cycle isn't
-  ~20-25s). ntfy carries the same state via its `Tags` header
-  (`name,state`) so this works even without the Worker configured; only
-  entries logged before this change lack tags and fall back to the old
-  plain-sentence rendering.
+- Every log entry (Worker or ntfy) also carries a `state` field
+  (`open` / `closed` / `unknown`) alongside the human sentence, for a small
+  icon per entry in the web app instead of a full sentence. There's no door
+  sensor on this build (`SENSOR_GPIO -1`), so `state` is always `"unknown"`
+  in practice — the ESP32 only ever knows "I pulsed the relay", never
+  whether that opened or closed the gate. The web app's `classify()`
+  (`web/index.html`) fills the gap by *guessing*: one button is assumed to
+  toggle the gate (closed → open → closed → ...), and two actuations closer
+  together than `BURST_GAP_S` (~20-25s, one open/close cycle) are treated as
+  the same person re-clicking — a "burst" (bolt icon), not a real second
+  toggle, so it doesn't flip the guess. If a future build ever adds a real
+  sensor, a non-`"unknown"` `state` is trusted over the guess automatically.
+  ntfy carries the same `state` via its `Tags` header (`name,state`) so this
+  works even without the Worker configured; only entries logged before this
+  change lack tags and fall back to the old plain-sentence rendering.
 
 ## 1. Deploy the Worker `[YOU]`
 

@@ -301,17 +301,33 @@ function setStatus(msg, cls) {
 
 $("refresh").onclick = loadLog;
 
-// A deliberate open->close cycle takes ~20-25s (see docs). Two actuations
-// closer together than this are the same person re-clicking, not a real
-// second action - flag the later one(s) as a "burst" instead of open/closed.
+// There is no door sensor - the ESP32 only ever knows "I pulsed the relay",
+// never whether that opened or closed the gate. So open/closed here is a
+// guess from timing, not a fact: assume one button toggles the gate
+// (closed -> open -> closed -> ...), and that a deliberate open->close cycle
+// takes ~20-25s. Two actuations closer together than that are the same
+// person re-clicking, not a real second toggle - flag the later one(s) as a
+// "burst" and don't let them flip the open/closed guess. If a `state` field
+// IS present and isn't "unknown" (e.g. a future build with a real sensor),
+// trust it instead of guessing.
 const BURST_GAP_S = 15;
 
-// Mutates rows in place: sets `.burst = true` on any row within BURST_GAP_S
-// of the previous one (chronologically), regardless of display order.
-function annotateBursts(rows) {
+// Mutates rows in place with `.burst` and `.guess` ("open"/"closed").
+// Bursts are measured from the last *real* (non-burst) actuation, so a chain
+// of quick re-clicks doesn't stretch the window further than one cycle.
+function classify(rows) {
   const asc = [...rows].sort((a, b) => a.time - b.time);
-  for (let i = 1; i < asc.length; i++) {
-    if (asc[i].time - asc[i - 1].time < BURST_GAP_S) asc[i].burst = true;
+  let lastRealTime = -Infinity;
+  let next = "open";  // assume the gate starts closed
+  for (const row of asc) {
+    if (row.time - lastRealTime < BURST_GAP_S) {
+      row.burst = true;
+      continue;
+    }
+    lastRealTime = row.time;
+    const known = row.state === "open" || row.state === "closed";
+    row.guess = known ? row.state : next;
+    next = row.guess === "open" ? "closed" : "open";
   }
   return rows;
 }
@@ -324,22 +340,19 @@ const ICONS = {
 };
 
 function iconKeyFor(row) {
-  if (row.burst) return "burst";
-  if (row.state === "open" || row.state === "closed") return row.state;
-  return "unknown";
+  return row.burst ? "burst" : (row.guess || "unknown");
 }
 
 function iconTitleFor(key) {
   return t("app.icon." + key);
 }
 
-// rows: {name, time, state?, burst?, message?} - `message` (a plain sentence)
-// is the fallback for older ntfy entries logged before structured tags/state
-// existed.
+// rows: {name, time, state?, message?} - `message` (a plain sentence) is the
+// fallback for older ntfy entries logged before structured tags existed.
 function renderRows(rows) {
   const ul = $("log");
   if (!rows.length) { ul.innerHTML = `<li class="muted">${t("app.noRecent")}</li>`; return; }
-  annotateBursts(rows);
+  classify(rows);
   ul.innerHTML = rows.map((m) => {
     const key = iconKeyFor(m);
     const who = m.name ? escapeHtml(m.name) : escapeHtml(m.message || "?");
