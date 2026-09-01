@@ -18,7 +18,7 @@ window.GARAGE_I18N = {
     "setup.errName": "Name: 1–31 characters, no ';' or ':'.",
     "setup.errKey": "The key must be 64 hex characters.",
 
-    "app.open": "Open",
+    "app.open": "Open / Close",
     "app.sending": "Sending…",
     "app.sent": "Sent. Opening…",
     "app.failed": "Failed: {msg}",
@@ -57,7 +57,7 @@ window.GARAGE_I18N = {
     "setup.errName": "Imię: 1–31 znaków, bez ';' i ':'.",
     "setup.errKey": "Klucz musi mieć 64 znaki szesnastkowe.",
 
-    "app.open": "Otwórz",
+    "app.open": "Otwórz / Zamknij",
     "app.sending": "Wysyłanie…",
     "app.sent": "Wysłano. Otwieram…",
     "app.failed": "Błąd: {msg}",
