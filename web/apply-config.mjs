@@ -14,6 +14,7 @@
 // Recognised env vars -> config.js keys:
 //   DEVICE_NAME -> deviceName   ADMIN_NAME -> adminName   WEB_LANG -> lang
 //   NTFY_BASE   -> ntfy         CMD_TOPIC  -> cmdTopic    LOG_TOPIC -> logTopic
+//   CF_LOG_URL  -> cfLog
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -29,6 +30,7 @@ const MAP = {
   NTFY_BASE: "ntfy",
   CMD_TOPIC: "cmdTopic",
   LOG_TOPIC: "logTopic",
+  CF_LOG_URL: "cfLog",
 };
 
 const jsStr = (s) => JSON.stringify(String(s)); // safe quoting/escaping

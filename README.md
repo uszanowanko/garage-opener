@@ -38,6 +38,7 @@ phone ──► ntfy.sh ──► ESP32 + relay ──► gate opener
 1. `docs/finalize.md` — step-by-step to go live from a fresh repo + deploy.
 2. `docs/wiring.md` — how the ESP32 connects to the opener.
 3. `docs/threat-model.md` — what the signing does and does not protect.
+4. `docs/extended-log.md` — optional: log history past ntfy.sh's 12h cap (free, no self-host).
 
 ## Quick commands
 

@@ -54,3 +54,18 @@ tL4ndQavEi51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1
 /q4AaOeMSQ+2b1tbFfLn
 -----END CERTIFICATE-----
 )EOF";
+
+// --------------------------------------------------------------------------
+// Cloudflare Worker (optional extended log, see docs/extended-log.md).
+//
+// postLogCF() in main.cpp currently connects with setInsecure() instead of a
+// pinned CA, because *.workers.dev's certificate chain isn't fixed here and
+// couldn't be verified from this dev environment. To pin it properly once
+// your Worker is deployed:
+//
+//   openssl s_client -connect <CF_LOG_HOST>:443 -showcerts </dev/null
+//
+// take the last (root) certificate's PEM block, define it below the same way
+// as NTFY_ROOT_CA_BUNDLE above (e.g. `CF_ROOT_CA_BUNDLE`), and swap
+// `c.setInsecure()` for `c.setCACert(CF_ROOT_CA_BUNDLE)` in postLogCF().
+// --------------------------------------------------------------------------

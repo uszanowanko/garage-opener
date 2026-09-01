@@ -3,6 +3,9 @@
 //   phone --> https://ntfy.sh/<CMD_TOPIC>  --(this device holds a GET stream)-->  relay pulse
 //   phone --> http://garage.local/open     (same signed payload, LAN, works with internet down)
 //
+// Every open also logs to LOG_TOPIC and, if CF_LOG_HOST is set, to a
+// Cloudflare Worker (docs/extended-log.md) for history beyond ntfy's 12h cap.
+//
 // Wire format (ntfy message body, or POST body on /open):
 //
 //   v1;<ts>;<name>;<sighex>
@@ -140,7 +143,7 @@ static void floodRecord() {
 // --------------------------------------------------------------------------
 // ntfy publish (log line). Short-lived connection, best effort.
 // --------------------------------------------------------------------------
-static void postLog(const String &name) {
+static void postLogNtfy(const String &body) {
   WiFiClientSecure c;
   c.setCACert(NTFY_ROOT_CA_BUNDLE);
   c.setTimeout(4);
@@ -150,14 +153,6 @@ static void postLog(const String &name) {
     return;
   }
   esp_task_wdt_reset();
-  char tbuf[32] = "??";
-  time_t now = time(nullptr);
-  struct tm tmv;
-  if (localtime_r(&now, &tmv)) strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M", &tmv);
-
-  // "<name> <LOG_ACTION> @ <time> <LOG_STATE_PREFIX> <state>"
-  String body = name + " " LOG_ACTION " @ " + tbuf + " " LOG_STATE_PREFIX " " +
-                doorStateText();
 
   String req = String("POST /") + LOG_TOPIC + " HTTP/1.1\r\n" +
                "Host: " + NTFY_HOST + "\r\n" +
@@ -175,6 +170,77 @@ static void postLog(const String &name) {
     delay(10);
   }
   c.stop();
+}
+
+// --------------------------------------------------------------------------
+// Cloudflare Worker publish (optional, longer history than ntfy.sh's 12h
+// cache). Independent, best-effort, fire-and-forget - a failure here never
+// affects the ntfy log or the actuation itself. Skipped entirely when
+// CF_LOG_HOST is empty. See docs/extended-log.md.
+// --------------------------------------------------------------------------
+static void jsonAppendEscaped(String &out, const String &s) {
+  for (size_t i = 0; i < s.length(); i++) {
+    char ch = s[i];
+    switch (ch) {
+      case '"': out += "\\\""; break;
+      case '\\': out += "\\\\"; break;
+      case '\n': out += "\\n"; break;
+      case '\r': break;
+      default:
+        if ((uint8_t)ch < 0x20) break;  // drop other control chars
+        out += ch;
+    }
+  }
+}
+
+static void postLogCF(const String &body, time_t now) {
+  if (strlen(CF_LOG_HOST) == 0) return;
+
+  WiFiClientSecure c;
+  c.setInsecure();  // see certs.h: pin a real CA once the Worker is deployed
+  c.setTimeout(4);
+  esp_task_wdt_reset();
+  if (!c.connect(CF_LOG_HOST, CF_LOG_PORT)) {
+    Serial.println("[log-cf] connect failed");
+    return;
+  }
+  esp_task_wdt_reset();
+
+  String json = "{\"message\":\"";
+  jsonAppendEscaped(json, body);
+  json += "\",\"time\":" + String((unsigned long)now) + "}";
+
+  String req = String("POST ") + CF_LOG_PATH + " HTTP/1.1\r\n" +
+               "Host: " + CF_LOG_HOST + "\r\n" +
+               "User-Agent: garage-esp32\r\n" +
+               "Authorization: Bearer " CF_LOG_KEY "\r\n" +
+               "Content-Type: application/json\r\n" +
+               "Content-Length: " + json.length() + "\r\n" +
+               "Connection: close\r\n\r\n" + json;
+  c.print(req);
+
+  unsigned long t0 = millis();
+  while (c.connected() && millis() - t0 < 3000) {
+    while (c.available()) c.read();
+    esp_task_wdt_reset();
+    delay(10);
+  }
+  c.stop();
+}
+
+// Writes to both ntfy and the (optional) Cloudflare Worker, always.
+static void postLog(const String &name) {
+  char tbuf[32] = "??";
+  time_t now = time(nullptr);
+  struct tm tmv;
+  if (localtime_r(&now, &tmv)) strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M", &tmv);
+
+  // "<name> <LOG_ACTION> @ <time> <LOG_STATE_PREFIX> <state>"
+  String body = name + " " LOG_ACTION " @ " + tbuf + " " LOG_STATE_PREFIX " " +
+                doorStateText();
+
+  postLogNtfy(body);
+  postLogCF(body, now);
 }
 
 // --------------------------------------------------------------------------

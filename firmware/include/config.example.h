@@ -47,6 +47,17 @@
 #define WEB_BASE_URL     "https://uszanowanko.github.io/garage-opener"
 
 // ---------------------------------------------------------------------------
+// Optional: Cloudflare Worker for log history longer than ntfy.sh's 12h cache.
+// Leave CF_LOG_HOST empty ("") to skip this entirely - every open still logs
+// to LOG_TOPIC as before, this is purely additive. Setup: docs/extended-log.md
+// (free Cloudflare Workers + KV, no card required).
+// ---------------------------------------------------------------------------
+#define CF_LOG_HOST      ""                             // e.g. "garage-log.yourname.workers.dev"
+#define CF_LOG_PORT      443
+#define CF_LOG_PATH      "/log"
+#define CF_LOG_KEY       "REPLACE_WITH_RANDOM_SECRET"    // must equal: wrangler secret put LOG_WRITE_KEY
+
+// ---------------------------------------------------------------------------
 // GPIO
 // ---------------------------------------------------------------------------
 #define RELAY_GPIO             23

@@ -11,6 +11,7 @@ remote", with no ongoing maintenance.
 | the **setup link** (`#n=..&k=..`) | **yes** — it carries `k` | same as `k`. Lives in whatever you sent it through and the recipient's messages. |
 | `CMD_TOPIC` | **no** — it ships in the public web page | someone can publish junk to it; the ESP32 rejects anything without a valid signature. Worst case: noise in the ESP32 serial log. |
 | `LOG_TOPIC` | **no** | someone can read "who opened it when", or publish fake log lines. No door access. |
+| `CF_LOG_KEY` (optional, `extended-log.md`) | **yes** | write-only access to the extended log store — same class of risk as `LOG_TOPIC` (fake entries), plus it's a standing key rather than a public topic name. If leaked: `wrangler secret put LOG_WRITE_KEY` a new value, update `CF_LOG_HOST`'s firmware config, re-flash. Reading that store is public by design, same as `LOG_TOPIC`. |
 
 ## What stops an attacker who knows `CMD_TOPIC`
 

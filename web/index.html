@@ -114,7 +114,7 @@
         <button id="refresh" class="muted" style="padding:4px 10px; font-size:.8rem" data-i18n="app.refresh"></button>
       </div>
       <ul id="log"></ul>
-      <p class="muted" style="margin-bottom:0" data-i18n="app.retention"></p>
+      <p class="muted" id="histNote" style="margin-bottom:0"></p>
     </div>
 
     <footer class="muted">
@@ -294,9 +294,32 @@ function setStatus(msg, cls) {
 
 $("refresh").onclick = loadLog;
 
+function renderRows(rows) {
+  const ul = $("log");
+  if (!rows.length) { ul.innerHTML = `<li class="muted">${t("app.noRecent")}</li>`; return; }
+  ul.innerHTML = rows.map((m) =>
+    `<li>${escapeHtml(m.message)}<time>${rel(m.time)}</time></li>`).join("");
+}
+
+// History: try the Cloudflare Worker first (no 12h cap) if configured. Only
+// fall back to ntfy's 12h cache when the Worker doesn't answer at all - see
+// docs/extended-log.md.
 async function loadLog() {
   const ul = $("log");
   ul.innerHTML = `<li class="muted">${t("app.loading")}</li>`;
+  $("histNote").textContent = cfg.cfLog ? "" : t("app.retention");
+
+  if (cfg.cfLog) {
+    try {
+      const res = await fetch(`${cfg.cfLog}?limit=10`);
+      if (res.ok) {
+        renderRows(await res.json());
+        return;
+      }
+    } catch {}
+    $("histNote").textContent = t("app.histFallback12h");
+  }
+
   try {
     const res = await fetch(`${cfg.ntfy}/${cfg.logTopic}/json?poll=1&since=12h`);
     const text = await res.text();
@@ -305,9 +328,7 @@ async function loadLog() {
       .filter((m) => m && m.event === "message")
       .sort((a, b) => b.time - a.time)
       .slice(0, 10);
-    if (!rows.length) { ul.innerHTML = `<li class="muted">${t("app.noRecent")}</li>`; return; }
-    ul.innerHTML = rows.map((m) =>
-      `<li>${escapeHtml(m.message)}<time>${rel(m.time)}</time></li>`).join("");
+    renderRows(rows);
   } catch {
     ul.innerHTML = `<li class="muted">${t("app.histError")}</li>`;
   }
