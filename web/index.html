@@ -15,13 +15,13 @@
   :root {
     --bg: #f4f5f7; --card: #ffffff; --fg: #1a1c1e; --muted: #5f6368;
     --line: #e3e5e8; --accent: #1a73e8; --accent-fg: #ffffff;
-    --ok: #1e8e3e; --err: #d93025;
+    --ok: #1e8e3e; --err: #d93025; --warn: #b06000;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111417; --card: #1c2024; --fg: #e8eaed; --muted: #9aa0a6;
       --line: #2e3236; --accent: #8ab4f8; --accent-fg: #06121f;
-      --ok: #81c995; --err: #f28b82;
+      --ok: #81c995; --err: #f28b82; --warn: #fdd663;
     }
   }
   * { box-sizing: border-box; }
@@ -69,6 +69,13 @@
   ul#log li { padding: 10px 0; border-top: 1px solid var(--line); font-size: .92rem; }
   ul#log li:first-child { border-top: none; }
   ul#log time { display: block; color: var(--muted); font-size: .78rem; margin-top: 2px; }
+  ul#log .entry { display: flex; align-items: center; gap: 8px; }
+  ul#log .entry .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ul#log .ic { width: 18px; height: 18px; flex: none; }
+  ul#log .ic-open { color: var(--ok); }
+  ul#log .ic-closed { color: var(--accent); }
+  ul#log .ic-burst { color: var(--warn); }
+  ul#log .ic-unknown { color: var(--muted); }
   footer { margin-top: auto; padding-top: 18px; }
   a { color: var(--accent); }
 </style>
@@ -294,11 +301,51 @@ function setStatus(msg, cls) {
 
 $("refresh").onclick = loadLog;
 
+// A deliberate open->close cycle takes ~20-25s (see docs). Two actuations
+// closer together than this are the same person re-clicking, not a real
+// second action - flag the later one(s) as a "burst" instead of open/closed.
+const BURST_GAP_S = 15;
+
+// Mutates rows in place: sets `.burst = true` on any row within BURST_GAP_S
+// of the previous one (chronologically), regardless of display order.
+function annotateBursts(rows) {
+  const asc = [...rows].sort((a, b) => a.time - b.time);
+  for (let i = 1; i < asc.length; i++) {
+    if (asc[i].time - asc[i - 1].time < BURST_GAP_S) asc[i].burst = true;
+  }
+  return rows;
+}
+
+const ICONS = {
+  open: '<svg class="ic ic-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>',
+  closed: '<svg class="ic ic-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg>',
+  burst: '<svg class="ic ic-burst" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
+  unknown: '<svg class="ic ic-unknown" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>',
+};
+
+function iconKeyFor(row) {
+  if (row.burst) return "burst";
+  if (row.state === "open" || row.state === "closed") return row.state;
+  return "unknown";
+}
+
+function iconTitleFor(key) {
+  return t("app.icon." + key);
+}
+
+// rows: {name, time, state?, burst?, message?} - `message` (a plain sentence)
+// is the fallback for older ntfy entries logged before structured tags/state
+// existed.
 function renderRows(rows) {
   const ul = $("log");
   if (!rows.length) { ul.innerHTML = `<li class="muted">${t("app.noRecent")}</li>`; return; }
-  ul.innerHTML = rows.map((m) =>
-    `<li>${escapeHtml(m.message)}<time>${rel(m.time)}</time></li>`).join("");
+  annotateBursts(rows);
+  ul.innerHTML = rows.map((m) => {
+    const key = iconKeyFor(m);
+    const who = m.name ? escapeHtml(m.name) : escapeHtml(m.message || "?");
+    return `<li><span class="entry" title="${escapeHtml(iconTitleFor(key))}">${ICONS[key]}` +
+           `<span class="who">${who}</span></span><time>${rel(m.time)}</time></li>`;
+  }).join("");
 }
 
 // History: try the Cloudflare Worker first (no 12h cap) if configured. Only
@@ -327,7 +374,11 @@ async function loadLog() {
       .map((l) => { try { return JSON.parse(l); } catch { return null; } })
       .filter((m) => m && m.event === "message")
       .sort((a, b) => b.time - a.time)
-      .slice(0, 10);
+      .slice(0, 10)
+      // ntfy's own JSON: `tags: [name, state]` set by the firmware, or
+      // absent on entries logged before this feature - fall back to the
+      // plain sentence for those.
+      .map((m) => ({ name: m.tags && m.tags[0], state: m.tags && m.tags[1], time: m.time, message: m.message }));
     renderRows(rows);
   } catch {
     ul.innerHTML = `<li class="muted">${t("app.histError")}</li>`;

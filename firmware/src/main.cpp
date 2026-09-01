@@ -142,8 +142,14 @@ static void floodRecord() {
 
 // --------------------------------------------------------------------------
 // ntfy publish (log line). Short-lived connection, best effort.
+//
+// `tags` (ntfy's own Tags header -> JSON `tags: [name, state]`) carries the
+// same open/closed/unknown state machine-readably, alongside the free-text
+// `body` meant for humans reading a push notification. The web app's ntfy
+// fallback reads `tags` to draw the same icons as the Cloudflare path,
+// without parsing the (localised, owner-configurable) sentence.
 // --------------------------------------------------------------------------
-static void postLogNtfy(const String &body) {
+static void postLogNtfy(const String &body, const String &tags) {
   WiFiClientSecure c;
   c.setCACert(NTFY_ROOT_CA_BUNDLE);
   c.setTimeout(4);
@@ -158,6 +164,7 @@ static void postLogNtfy(const String &body) {
                "Host: " + NTFY_HOST + "\r\n" +
                "User-Agent: garage-esp32\r\n" +
                "Title: " DEVICE_NAME "\r\n" +
+               "Tags: " + tags + "\r\n" +
                "Content-Type: text/plain; charset=utf-8\r\n" +
                "Content-Length: " + body.length() + "\r\n" +
                "Connection: close\r\n\r\n" + body;
@@ -193,7 +200,7 @@ static void jsonAppendEscaped(String &out, const String &s) {
   }
 }
 
-static void postLogCF(const String &body, time_t now) {
+static void postLogCF(const String &name, const char *state, time_t now) {
   if (strlen(CF_LOG_HOST) == 0) return;
 
   WiFiClientSecure c;
@@ -206,9 +213,9 @@ static void postLogCF(const String &body, time_t now) {
   }
   esp_task_wdt_reset();
 
-  String json = "{\"message\":\"";
-  jsonAppendEscaped(json, body);
-  json += "\",\"time\":" + String((unsigned long)now) + "}";
+  String json = "{\"name\":\"";
+  jsonAppendEscaped(json, name);
+  json += "\",\"time\":" + String((unsigned long)now) + ",\"state\":\"" + state + "\"}";
 
   String req = String("POST ") + CF_LOG_PATH + " HTTP/1.1\r\n" +
                "Host: " + CF_LOG_HOST + "\r\n" +
@@ -235,12 +242,18 @@ static void postLog(const String &name) {
   struct tm tmv;
   if (localtime_r(&now, &tmv)) strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M", &tmv);
 
-  // "<name> <LOG_ACTION> @ <time> <LOG_STATE_PREFIX> <state>"
+  const char *state = doorState();  // machine-readable: "open" | "closed" | "unknown"
+
+  // "<name> <LOG_ACTION> @ <time> <LOG_STATE_PREFIX> <state>" - human sentence,
+  // shown as-is in ntfy push notifications.
   String body = name + " " LOG_ACTION " @ " + tbuf + " " LOG_STATE_PREFIX " " +
                 doorStateText();
 
-  postLogNtfy(body);
-  postLogCF(body, now);
+  String tagName = name;
+  tagName.replace(",", " ");  // keep the two-part "name,state" tag list well-formed
+
+  postLogNtfy(body, tagName + "," + state);
+  postLogCF(name, state, now);
 }
 
 // --------------------------------------------------------------------------

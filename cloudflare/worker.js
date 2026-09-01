@@ -7,15 +7,19 @@
 //
 // Routes:
 //   POST /log   Authorization: Bearer <LOG_WRITE_KEY>
-//               body: {"message": "...", "time": 1234567890}
+//               body: {"name": "...", "time": 1234567890, "state": "open"}
+//               state is one of "open" | "closed" | "unknown" (the door
+//               sensor reading right after this actuation).
 //               -> 204, appends one entry (newest MAX_ENTRIES kept)
 //   GET  /log?limit=10
-//               -> 200 application/json, CORS-open: [{"message","time"}, ...]
-//               newest first. No auth - same posture as ntfy's LOG_TOPIC,
-//               which is already readable/writable by anyone who knows it.
+//               -> 200 application/json, CORS-open:
+//               [{"name","time","state"}, ...] newest first. No auth - same
+//               posture as ntfy's LOG_TOPIC, which is already
+//               readable/writable by anyone who knows it.
 
 const MAX_ENTRIES = 200;
 const KV_KEY = "logs";
+const STATES = new Set(["open", "closed", "unknown"]);
 
 function respond(body, status, extraHeaders) {
   return new Response(body, {
@@ -53,13 +57,14 @@ export default {
       } catch {
         return respond("bad json", 400);
       }
-      const message = String(entry.message || "").slice(0, 300);
+      const name = String(entry.name || "").slice(0, 40);
       const time = Number.isFinite(entry.time) ? entry.time : Math.floor(Date.now() / 1000);
-      if (!message) return respond("empty message", 400);
+      const state = STATES.has(entry.state) ? entry.state : "unknown";
+      if (!name) return respond("empty name", 400);
 
       const raw = await env.LOGS.get(KV_KEY);
       const all = raw ? JSON.parse(raw) : [];
-      all.unshift({ message, time });
+      all.unshift({ name, time, state });
       await env.LOGS.put(KV_KEY, JSON.stringify(all.slice(0, MAX_ENTRIES)));
       return respond(null, 204);
     }

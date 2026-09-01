@@ -23,6 +23,17 @@ ever want to leave free public services behind entirely — this is not that.
   12h window and says so under the list.
 - Nothing about `CMD_TOPIC` / signing / actuation changes. This is
   logging-only.
+- Every log entry (Worker or ntfy) now carries the door sensor's state
+  (`open` / `closed` / `unknown`) right after that actuation, not just a
+  human sentence. The web app uses it to show a small icon per entry instead
+  of a full sentence — up-arrow (opened), down-arrow (closed), a bolt icon
+  for a "burst" (two actuations closer together than `BURST_GAP_S` in
+  `web/index.html`, i.e. someone re-clicking impatiently rather than a real
+  second action — tune that constant if your gate's open/close cycle isn't
+  ~20-25s). ntfy carries the same state via its `Tags` header
+  (`name,state`) so this works even without the Worker configured; only
+  entries logged before this change lack tags and fall back to the old
+  plain-sentence rendering.
 
 ## 1. Deploy the Worker `[YOU]`
 
@@ -55,11 +66,11 @@ K=<the LOG_WRITE_KEY you generated>
 
 curl -i -X POST "$W/log" \
   -H "Authorization: Bearer $K" -H "Content-Type: application/json" \
-  -d '{"message":"test entry","time":1700000000}'
+  -d '{"name":"test","time":1700000000,"state":"open"}'
 # expect: HTTP/1.1 204
 
 curl -s "$W/log?limit=5"
-# expect: [{"message":"test entry","time":1700000000}]
+# expect: [{"name":"test","time":1700000000,"state":"open"}]
 ```
 
 ## 3. Point the firmware at it
