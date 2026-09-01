@@ -197,4 +197,5 @@ The one person without CarPlay/Android Auto just uses the home-screen icon.
 | Rename the device | change `DEVICE_NAME` Variable + `MDNS_HOST`/`DEVICE_NAME` in `config.h` → redeploy + reflash |
 | ntfy.sh problems | `docs/self-host-ntfy.md` (change one base URL in 4 places) |
 | Want log history past 12h | `docs/extended-log.md` (free Cloudflare Worker, no self-host) |
+| Want voice control / Android Auto | `docs/smart-home.md` (Google Home device, same Worker) |
 | Firmware update | edit, `pio run -d firmware -t upload --upload-port wrota.local` |

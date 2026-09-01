@@ -1,5 +1,6 @@
 # Deploy with: wrangler deploy   (run from this directory)
-# See ../docs/extended-log.md for the full setup.
+# See ../docs/extended-log.md (log history) and ../docs/smart-home.md
+# (Google Home / Android Auto voice control) for the full setup.
 
 name = "garage-log"
 main = "worker.js"
@@ -9,5 +10,19 @@ kv_namespaces = [
   { binding = "GARAGE_LOGS", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
 ]
 
-# LOG_WRITE_KEY is a secret, not set here:
-#   wrangler secret put LOG_WRITE_KEY
+# Plain vars - not secret, safe to commit (same posture as CMD_TOPIC already
+# has in firmware/web: not secret by itself, gated by the signed payload).
+[vars]
+NTFY_BASE = "https://ntfy.sh"
+CMD_TOPIC = "gate-REPLACE_WITH_RANDOM_HEX"
+DEVICE_NAME = "Gate"
+AGENT_USER_ID = "owner"
+GATE_SIGN_NAME = "GoogleHome"
+
+# Secrets - not set here, see docs/extended-log.md and docs/smart-home.md:
+#   wrangler secret put LOG_WRITE_KEY          (extended log history)
+#   wrangler secret put GATE_SIGN_KEY          (Google Home -> actuation)
+#   wrangler secret put TOKEN_SECRET           (Google Home -> OAuth tokens)
+#   wrangler secret put SMARTHOME_CLIENT_ID    (Google Home -> account linking)
+#   wrangler secret put SMARTHOME_CLIENT_SECRET
+#   wrangler secret put LINK_PASSWORD          (Google Home -> account linking)

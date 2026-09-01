@@ -47,9 +47,14 @@ if (getWifiSSID() === "mom-wifi") changeUrl("http://192.168.1.50/open");
 - **Geofence**: shortcut → **Trigger & Scheduling** → **Add trigger** →
   **Location** → the gate's address. Opens automatically on arrival.
 - **"Hey Google, <your phrase>"**: HTTP Shortcuts registers shortcuts with
-  Google Assistant / the system. Say the phrase, or add it as a routine
-  (Google Home app → Routines → *add action* → *Try adding your own* → the
-  shortcut). Also works from Android Auto by voice.
+  Google Assistant / the system. This is getting unreliable as Gemini takes
+  over Assistant — as of 2025/2026, Gemini often
+  [can't trigger app shortcuts](https://support.google.com/gemini/thread/399049872/gemini-cannot-trigger-shortcut-actions-for-our-android-app)
+  as a Routine action any more. Try it (Google Home app → Routines →
+  *add action* → *Try adding your own* → the shortcut) — if it doesn't
+  stick, or you want proper "Otwórz X" / "Zamknij X" phrasing and hands-free
+  Android Auto voice control, see `docs/smart-home.md` instead (a real
+  Google Home device, not a shortcut hack).
 
 ## Notes
 
