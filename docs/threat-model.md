@@ -12,8 +12,8 @@ remote", with no ongoing maintenance.
 | `CMD_TOPIC` | **no** — it ships in the public web page | someone can publish junk to it; the ESP32 rejects anything without a valid signature. Worst case: noise in the ESP32 serial log. |
 | `LOG_TOPIC` | **no** | someone can read "who opened it when", or publish fake log lines. No door access. |
 | `CF_LOG_KEY` (optional, `extended-log.md`) | **yes** | write-only access to the extended log store — same class of risk as `LOG_TOPIC` (fake entries), plus it's a standing key rather than a public topic name. If leaked: `wrangler secret put LOG_WRITE_KEY` a new value, update `CF_LOG_HOST`'s firmware config, re-flash. Reading that store is public by design, same as `LOG_TOPIC`. |
-| `GATE_SIGN_KEY` (optional, `smart-home.md`) | **yes** | this **is** a roster `k` (for the `GoogleHome` entry) — same as leaking any family member's key: opens the door as "GoogleHome" until you rotate that roster line. Held only as a Worker secret, never sent to a phone. |
-| `TOKEN_SECRET` / `SMARTHOME_CLIENT_SECRET` / `LINK_PASSWORD` (optional, `smart-home.md`) | **yes** | control over the Google Home OAuth link. Leaking any of these lets someone complete account linking (or forge a fulfillment call) and reach `GoogleHome`'s door access indirectly. Rotate the leaked secret and re-link in the Google Home app; doesn't affect any other roster member. |
+| `VOICE_ROSTER` (optional, `smart-home.md`) | **yes** | a second copy of every opted-in person's real roster `k`, held as a Worker secret so Google Home can sign on their behalf. Leaking it is exactly as bad as leaking those lines of `config.h` — rotate each affected person's key (`make invite`) in *both* `config.h` and `VOICE_ROSTER`. |
+| `TOKEN_SECRET` / `SMARTHOME_CLIENT_SECRET` (optional, `smart-home.md`) | **yes** | control over the Google Home OAuth link. Leaking either lets someone forge a fulfillment call for anyone already in `VOICE_ROSTER` without going through account linking at all. Rotate the leaked secret (`wrangler secret put`); every issued token is invalidated at once and everyone re-links. |
 
 ## What stops an attacker who knows `CMD_TOPIC`
 

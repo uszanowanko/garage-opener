@@ -12,54 +12,61 @@ Geofencing is unaffected by any of this - keep using HTTP Shortcuts' own
 Location trigger (`clients/android/README.md`), it doesn't go through
 Google Assistant at all.
 
-## How it works
+## Everyone links their own account, so the log shows the real name
 
-The Worker in `cloudflare/` (same one as `docs/extended-log.md`) gained a
-Google Smart Home fulfillment endpoint. Google calls it to ask "what devices
-exist" (`SYNC`), "what state are they in" (`QUERY`), and "do this"
-(`EXECUTE`). `EXECUTE` just signs and posts the exact same `v1;ts;name;sig`
-payload as the web app's Open button, as a roster member named
-`GoogleHome` - so from the ESP32's point of view, Google Home is simply
-another family member with its own key. Both "Otwórz wrota" and "Zamknij
-wrota" send the **identical** command (there's still only one relay pulse,
-no separate close command); Google just lets you say two different phrases.
+Google's Smart Home platform expects exactly this: every household member
+who wants voice control performs *their own* account linking with your
+fulfillment ([confirmed in Google's own developer docs](https://developers.google.com/assistant/smarthome/concepts/account-linking) -
+"your Cloud-to-cloud integration is expected to support multiple Google
+users connecting to the same user account"). So each person authenticates
+on your consent page with **their own real roster name and k** (the exact
+same `k` from their personal setup link) - the OAuth token Google then
+attaches to every voice command tells the Worker who to sign as. "Otwórz
+wrota" from Tomek's phone (or his Android Auto, which just uses his phone's
+Google session) logs `Tomek`, opened it; from Kasia's, `Kasia`. There's no
+shared "GoogleHome" identity - Google Home is not a person here, your
+family members are, same as their phones or the ntfy app.
 
-`QUERY` reports a best-effort *guess* (open/closed), reusing the exact same
-no-sensor heuristic as the web app's history list - see
-`docs/extended-log.md`. It is not, and cannot be, a fact.
+Both "Otwórz wrota" and "Zamknij wrota" still send the **identical**
+signed command - there's one relay pulse, no separate close action. Google
+just lets each person say two different phrases for it.
 
-## 1. Give "GoogleHome" its own roster key `[YOU]`
+`QUERY` (Google asking "what state is it in") reports a best-effort
+*guess*, reusing the exact same no-sensor heuristic as the web app's
+history list - see `docs/extended-log.md`. It is not, and cannot be, a
+fact, and it isn't tied to any one person - it's the shared gate state.
 
-Same as adding a family member:
+## 1. Build the voice roster `[YOU]`
 
+For everyone who should get voice control, you already have their `k` -
+it's the same one from their personal setup link / their line in
+`ROSTER[]` in `firmware/include/config.h`. No new keys, no firmware
+changes. Build one JSON object:
+
+```json
+{"Tomek": "f52fbd32b2b3b86ff88ef6c490628285f482af15ddcb29541f94bcf526a3f6c7",
+ "Kasia": "...their 64-hex k..."}
 ```
-make invite NAME="GoogleHome"
-```
 
-Paste the printed `{ "GoogleHome", "k" }` line into `ROSTER[]` in
-`firmware/include/config.h`, then `make flash` (or OTA). You don't need the
-printed setup link - only the `k` value, for step 2.
-
-## 2. Add the new Worker secrets `[YOU]`
+## 2. Add the Worker secrets `[YOU]`
 
 On top of `LOG_WRITE_KEY` (already set per `docs/extended-log.md`):
 
 ```
 cd cloudflare
-wrangler secret put GATE_SIGN_KEY           # the GoogleHome k from step 1
+wrangler secret put VOICE_ROSTER            # paste the JSON from step 1
 openssl rand -hex 32                        # -> TOKEN_SECRET, save it
 wrangler secret put TOKEN_SECRET
 openssl rand -hex 16                        # -> SMARTHOME_CLIENT_ID, save it
 wrangler secret put SMARTHOME_CLIENT_ID
 openssl rand -hex 32                        # -> SMARTHOME_CLIENT_SECRET, save it
 wrangler secret put SMARTHOME_CLIENT_SECRET
-wrangler secret put LINK_PASSWORD           # a password only you will type, once
 ```
 
 Edit `wrangler.toml`'s `[vars]`: set `CMD_TOPIC` to your real topic
 (`firmware/include/config.h`) and `DEVICE_NAME` to whatever you want Google
-to call it ("Wrota", "Brama", anything - this is the name both `docs/`
-voice phrases will use: "Otwórz `<DEVICE_NAME>`" / "Zamknij `<DEVICE_NAME>`").
+to call it ("Wrota", "Brama", anything - this is the name everyone's voice
+phrases will use: "Otwórz `<DEVICE_NAME>`" / "Zamknij `<DEVICE_NAME>`").
 
 ```
 wrangler deploy
@@ -80,39 +87,55 @@ Under **Account linking**, set:
 | Client secret | your `SMARTHOME_CLIENT_SECRET` from step 2 |
 | Authorization URL | `https://garage-log.<your-subdomain>.workers.dev/oauth/authorize` |
 | Token URL | `https://garage-log.<your-subdomain>.workers.dev/oauth/token` |
-| Scopes | anything, e.g. `garage` (not enforced - single-user project) |
+| Scopes | anything, e.g. `garage` (not enforced) |
 
 Under **Actions** / fulfillment, set the fulfillment URL to
 `https://garage-log.<your-subdomain>.workers.dev/smarthome`.
 
 Fill in whatever minimal app name / icon the console requires - this project
 stays in **Test** mode (not published, not reviewed), which is all a
-personal, single-account Home needs.
+personal, family-only Home needs.
 
-## 4. Link your account
+## 4. Each person links their own account
+
+For every person in `VOICE_ROSTER` (each on their own phone, signed into
+their own Google account, ideally already a member of your Google Home
+household so they can also *hear* results / use the shared speakers):
 
 Google Home app -> **+** -> **Set up device** -> **Works with Google** ->
 search for your project's app name -> it opens your `/oauth/authorize`
-page -> type the `LINK_PASSWORD` from step 2 -> **Allow**. Google then
-calls `SYNC` and a device named `DEVICE_NAME` should appear.
+page -> enter **their name and their k** (exactly as in
+`VOICE_ROSTER`/`ROSTER[]`) -> **Allow**. A device named `DEVICE_NAME`
+appears in their Google Home.
 
-Test:
+Test, from that person's own phone or their Android Auto:
 ```
 "Hey Google, otwórz <DEVICE_NAME>"
 "Hey Google, zamknij <DEVICE_NAME>"
 ```
-Both should click the relay (check `make monitor` - the log line will show
-`user=GoogleHome`). Same phrases work from Android Auto once the phone is
-connected - no extra setup there.
+Check `make monitor` - the log line's `user=` should show *that* person's
+name, not a generic identity.
 
 ## Notes
 
-- **Rotating access**: `LINK_PASSWORD` only matters once, at linking time -
-  after that, revoke access from the Google Home app (remove the device) or
-  rotate `TOKEN_SECRET` (invalidates every issued token at once).
-- **Revoking just "GoogleHome"**: delete its roster line in `config.h` like
-  any family member, re-flash. The Worker will still *try* to actuate, ESP32
-  will just reject it (`unknown-user`).
+- **Adding someone later**: add their `{name, k}` to the `VOICE_ROSTER`
+  JSON, `wrangler secret put VOICE_ROSTER` again (no `wrangler deploy`
+  needed - secrets update live), have them link per step 4.
+- **Revoking one person's voice access without touching their phone/ntfy
+  access**: remove them from `VOICE_ROSTER`, `wrangler secret put` again.
+  Their EXECUTE calls then fail (`authFailure`) even though their token is
+  still "valid" - the Worker just has no key to sign with any more.
+- **Revoking someone everywhere** (phone, ntfy, voice, all at once): delete
+  their roster line in `config.h` like normal, re-flash. The Worker will
+  still try to sign as them, but the ESP32 will reject it
+  (`unknown-user`/`bad-sig` once you also change their `k`).
+- **If `VOICE_ROSTER` or `TOKEN_SECRET` leak**: `VOICE_ROSTER` leaking is
+  exactly as bad as `config.h` leaking (it holds the same real keys) -
+  rotate every affected person's key (`make invite` again) and update both
+  `config.h` and `VOICE_ROSTER`. `TOKEN_SECRET` leaking lets someone forge
+  a fulfillment call for any name already in `VOICE_ROSTER` without
+  re-linking - rotate it (`wrangler secret put TOKEN_SECRET` a new value);
+  every issued token is invalidated at once, everyone re-links.
 - **This is additive**: nothing about `CMD_TOPIC`, the web app, or
   `docs/extended-log.md`'s log history changes. If Google ever breaks this
   integration too, delete the three new routes' worth of config and you're

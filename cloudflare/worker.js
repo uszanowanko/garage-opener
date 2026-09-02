@@ -9,26 +9,27 @@
 //                  -> [{"name","time","state"}, ...] newest first, CORS-open
 //
 // 2. A Google Smart Home ("Otwórz <name>" / "Zamknij <name>", incl. hands-free
-//    from Android Auto) fulfillment, backed by the exact same roster
-//    mechanism every phone already uses - see smart-home.md for the Google
-//    Home Developer Console side of this:
-//      GET|POST /oauth/authorize   OAuth consent screen (password-gated)
+//    from Android Auto) fulfillment. Each family member links their OWN
+//    Google account, authenticating on our consent screen with their real
+//    name + their real roster k (the same one from their personal setup
+//    link) - so the ESP32 log shows exactly who asked, same as the phone
+//    app or ntfy. See smart-home.md for the Google Home Developer Console
+//    side of this:
+//      GET|POST /oauth/authorize   OAuth consent screen (name + k gated)
 //      POST     /oauth/token       OAuth token exchange
 //      POST     /smarthome         SYNC / QUERY / EXECUTE fulfillment
 //
 // Bindings this Worker needs:
 //   GARAGE_LOGS   KV namespace  - shared by both halves (log entries)
 //   LOG_WRITE_KEY secret        - shared with the ESP32's CF_LOG_KEY
-//   GATE_SIGN_KEY secret        - a roster member's 64-hex k (`make invite
-//                                 NAME="GoogleHome"`), lets this Worker sign
-//                                 its own open/close commands
+//   VOICE_ROSTER  secret        - JSON {"Name": "64hexk", ...} - a COPY of
+//                                 each opted-in person's real roster k from
+//                                 firmware/include/config.h. As sensitive as
+//                                 the roster itself; see docs/threat-model.md
 //   TOKEN_SECRET  secret        - signs this Worker's own OAuth tokens
 //   SMARTHOME_CLIENT_ID/SECRET  secret - chosen by you, entered verbatim into
 //                                 the Google Home Developer Console
-//   LINK_PASSWORD secret        - gates the OAuth consent screen so only you
-//                                 can link your Google account
-//   GATE_SIGN_NAME, CMD_TOPIC, NTFY_BASE, DEVICE_NAME, AGENT_USER_ID - plain
-//                                 vars, see wrangler.toml
+//   CMD_TOPIC, NTFY_BASE, DEVICE_NAME - plain vars, see wrangler.toml
 
 const MAX_ENTRIES = 200;
 const KV_KEY = "logs";
@@ -173,6 +174,14 @@ async function handleLog(request, url, env) {
 // --------------------------------------------------------------------------
 const GATE_DEVICE_ID = "gate";
 
+function getVoiceRoster(env) {
+  try {
+    return JSON.parse(env.VOICE_ROSTER || "{}");
+  } catch {
+    return {};
+  }
+}
+
 // Best-effort guess at the current state, reusing the same log entries and
 // heuristic the web app's history list uses - see docs/extended-log.md for
 // why this can never be a fact (no door sensor).
@@ -186,12 +195,11 @@ async function guessOpenPercent(env) {
 }
 
 // Fire-and-forget, same wire format as web/index.html's Open button and the
-// firmware's roster check - GATE_SIGN_NAME must be a real roster entry
-// (`make invite NAME="GoogleHome"`).
-async function actuateGate(env) {
+// firmware's roster check - `name` must be a real roster entry and `key`
+// its real k, so the ESP32 log shows exactly who asked.
+async function actuateGate(env, name, key) {
   const ts = nowS();
-  const name = env.GATE_SIGN_NAME || "GoogleHome";
-  const sig = await hmacHex(env.GATE_SIGN_KEY, `v1:${ts}:${name}`);
+  const sig = await hmacHex(key, `v1:${ts}:${name}`);
   const body = `v1;${ts};${name};${sig}`;
   try {
     await fetch(`${env.NTFY_BASE || "https://ntfy.sh"}/${env.CMD_TOPIC}`, {
@@ -224,7 +232,7 @@ async function handleSmartHome(request, env) {
     return json({
       requestId,
       payload: {
-        agentUserId: env.AGENT_USER_ID || "owner",
+        agentUserId: token.sub,
         devices: [{
           id: GATE_DEVICE_ID,
           type: "action.devices.types.GARAGE",
@@ -249,13 +257,21 @@ async function handleSmartHome(request, env) {
   }
 
   if (input.intent === "action.devices.EXECUTE") {
+    const key = getVoiceRoster(env)[token.sub];
+    if (!key) {
+      // linked account's name no longer has a key in VOICE_ROSTER (revoked)
+      return json({
+        requestId,
+        payload: { commands: [{ ids: [GATE_DEVICE_ID], status: "ERROR", errorCode: "authFailure" }] },
+      });
+    }
     let openPercent = 100;
     let actuated = false;
     for (const cmd of input.payload.commands) {
       for (const exec of cmd.execution) {
         if (exec.command === "action.devices.commands.OpenClose") {
           openPercent = exec.params.openPercent;
-          if (!actuated) { await actuateGate(env); actuated = true; }
+          if (!actuated) { await actuateGate(env, token.sub, key); actuated = true; }
         }
       }
     }
@@ -273,9 +289,11 @@ async function handleSmartHome(request, env) {
 }
 
 // --------------------------------------------------------------------------
-// OAuth account linking - single-user, password-gated, no session storage
-// (the "code"/"access_token"/"refresh_token" are self-verifying signed
-// tokens - see signToken/verifyToken above).
+// OAuth account linking - each family member links their own Google account,
+// authenticating with their real roster name + k (from their personal setup
+// link). No session storage - the "code"/"access_token"/"refresh_token" are
+// self-verifying signed tokens (see signToken/verifyToken above) carrying
+// that name as `sub`.
 // --------------------------------------------------------------------------
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -290,12 +308,14 @@ input{width:100%;padding:10px;margin:8px 0;box-sizing:border-box;font:inherit}
 button{width:100%;padding:10px;font:inherit;margin-top:8px}
 </style>
 <h2>Link this account</h2>
+<p>Use the same name and key (<code>k</code>) as your personal setup link.</p>
 <form method="POST">
 <input type="hidden" name="client_id" value="${escapeHtml(params.client_id || "")}">
 <input type="hidden" name="redirect_uri" value="${escapeHtml(params.redirect_uri || "")}">
 <input type="hidden" name="state" value="${escapeHtml(params.state || "")}">
 <input type="hidden" name="scope" value="${escapeHtml(params.scope || "")}">
-<label>Password<input type="password" name="password" autofocus autocomplete="current-password"></label>
+<label>Name<input type="text" name="name" autofocus autocapitalize="words" autocomplete="off"></label>
+<label>Key (64 hex characters)<input type="password" name="key" autocomplete="off"></label>
 ${error ? `<p style="color:#c00">${escapeHtml(error)}</p>` : ""}
 <button type="submit">Allow</button>
 </form>`;
@@ -314,12 +334,17 @@ async function handleAuthorize(request, url, env) {
     const params = Object.fromEntries(form);
     if (params.client_id !== env.SMARTHOME_CLIENT_ID)
       return new Response("unknown client_id", { status: 400 });
-    if (params.password !== env.LINK_PASSWORD) {
-      return new Response(renderAuthorizeForm(params, "Wrong password"), {
+
+    const name = String(params.name || "").trim();
+    const key = String(params.key || "").trim().toLowerCase();
+    const roster = getVoiceRoster(env);
+    if (!name || !roster[name] || roster[name].toLowerCase() !== key) {
+      return new Response(renderAuthorizeForm(params, "Unknown name or wrong key"), {
         status: 401, headers: { "Content-Type": "text/html; charset=utf-8" },
       });
     }
-    const code = await signToken(env.TOKEN_SECRET, { sub: env.AGENT_USER_ID || "owner", typ: "code", exp: nowS() + 60 });
+
+    const code = await signToken(env.TOKEN_SECRET, { sub: name, typ: "code", exp: nowS() + 60 });
     let redirect;
     try {
       redirect = new URL(params.redirect_uri);
