@@ -2,35 +2,16 @@
 
 ## Status - pick up here in a new session
 
-**Code side: done.** `cloudflare/worker.js` has `/smarthome`,
-`/oauth/authorize`, `/oauth/token`; tested locally against Node's Web
-Crypto (multi-person linking, signature cross-checked against
-`docs/protocol.md`'s reference vector); pushed to `main`. Worker is live
-at `https://garage-log.tomekwaclawek.workers.dev` (log history already
-working there per `docs/extended-log.md`).
+Parts A/B/C below are **done** - Worker deployed with all secrets set,
+Google Home project registered, account linked, voice control confirmed
+working end to end ("otwórz"/"zamknij" both tested, correct name shows up
+when the ESP32 is online). Don't repeat them.
 
-**Not started yet - needs Tomek's own terminal + browser** (Claude running
-remotely has no access to `wrangler` login, the gitignored
-`firmware/include/config.h`, or a browser for Google's console):
-
-- [ ] **Part A** - find in `firmware/include/config.h`: Tomek's `k` (from
-      `ROSTER["Tomek"]`) and the real `CMD_TOPIC`.
-- [ ] **Part B** - in `cloudflare/`: `wrangler secret put` for
-      `VOICE_ROSTER` (JSON `{"Tomek": "<k from A>"}`), `TOKEN_SECRET`,
-      `SMARTHOME_CLIENT_ID`, `SMARTHOME_CLIENT_SECRET` (generate each with
-      `openssl rand -hex 32` / `-hex 16`); edit `wrangler.toml`'s
-      `CMD_TOPIC` + `DEVICE_NAME`; `wrangler deploy`.
-- [ ] **Part C** - register at `developers.home.google.com` (Cloud-to-cloud,
-      **OAuth** account linking - not "Google Sign-In" - using the
-      `SMARTHOME_CLIENT_ID`/`SECRET` from Part B and the
-      `/oauth/authorize` + `/oauth/token` + `/smarthome` URLs above), then
-      in the Google Home app link the account by entering name "Tomek" +
-      the `k` from Part A.
-
-Tomek has never done Google Home Developer Console before - walk through
-it click-by-click, don't assume prior knowledge, and say plainly if
-something on screen doesn't match what's expected (Google's UI shifts
-often) rather than guessing silently.
+Known limitation, left as-is for now: `EXECUTE` reports success back to
+Google immediately after posting to ntfy, with no confirmation the ESP32
+actually received or acted on it - if the device is offline, Google will
+still say it worked. Revisit if this becomes an actual problem in
+practice.
 
 Voice control, including hands-free from Android Auto, via a real Google
 Home device (not a Google Assistant "app shortcut" - as of 2025/2026 Gemini

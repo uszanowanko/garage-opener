@@ -31,5 +31,5 @@ window.GARAGE_CONFIG = {
   // "" -> read history from ntfy only (original behaviour). Tried first when
   // set; falls back to ntfy automatically if it doesn't answer. See
   // docs/extended-log.md.                                       [CF_LOG_URL]
-  cfLog: "https://garage-log.tomekwaclawek.workers.dev/log",
+  cfLog: "",
 };

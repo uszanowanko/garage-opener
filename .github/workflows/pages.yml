@@ -41,6 +41,7 @@ jobs:
           NTFY_BASE: ${{ secrets.NTFY_BASE || vars.NTFY_BASE }}
           CMD_TOPIC: ${{ secrets.CMD_TOPIC || vars.CMD_TOPIC }}
           LOG_TOPIC: ${{ secrets.LOG_TOPIC || vars.LOG_TOPIC }}
+          CF_LOG_URL: ${{ secrets.CF_LOG_URL || vars.CF_LOG_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
