@@ -268,6 +268,11 @@ $("forget").onclick = (e) => {
   if (confirm(t("app.resetConfirm"))) { store.clear(); render(); }
 };
 
+// Newest actuation time (epoch s) currently shown in the list - used after a
+// click to poll only until *this* actuation's own log entry appears.
+let latestRowTime = 0;
+let logPoll = null;
+
 let busy = false;
 $("open").onclick = async () => {
   if (busy) return;
@@ -285,7 +290,7 @@ $("open").onclick = async () => {
     });
     if (!res.ok) throw new Error(`ntfy ${res.status}`);
     setStatus(t("app.sent"), "ok");
-    setTimeout(loadLog, 2500);
+    pollForNewEntry();
   } catch (err) {
     setStatus(t("app.failed", { msg: err.message }), "err");
   } finally {
@@ -368,6 +373,7 @@ function iconTitleFor(key) {
 // fallback for older ntfy entries logged before structured tags existed.
 function renderRows(rows) {
   const ul = $("log");
+  for (const r of rows) if (r.time > latestRowTime) latestRowTime = r.time;
   if (!rows.length) { ul.innerHTML = `<li class="muted">${t("app.noRecent")}</li>`; return; }
   classify(rows);
   ul.innerHTML = rows.map((m) => {
@@ -378,29 +384,21 @@ function renderRows(rows) {
   }).join("");
 }
 
-// History: try the Cloudflare Worker first (no 12h cap) if configured. Only
-// fall back to ntfy's 12h cache when the Worker doesn't answer at all - see
+// History source: the Cloudflare Worker first (no 12h cap) if configured, else
+// ntfy's 12h cache. Returns a rows array, or null if nothing answered - see
 // docs/extended-log.md.
-async function loadLog() {
-  const ul = $("log");
-  ul.innerHTML = `<li class="muted">${t("app.loading")}</li>`;
-  $("histNote").textContent = cfg.cfLog ? "" : t("app.retention");
-
+async function fetchRows() {
   if (cfg.cfLog) {
     try {
       const res = await fetch(`${cfg.cfLog}?limit=10`);
-      if (res.ok) {
-        renderRows(await res.json());
-        return;
-      }
+      if (res.ok) { $("histNote").textContent = ""; return await res.json(); }
     } catch {}
     $("histNote").textContent = t("app.histFallback12h");
   }
-
   try {
     const res = await fetch(`${cfg.ntfy}/${cfg.logTopic}/json?poll=1&since=12h`);
     const text = await res.text();
-    const rows = text.trim().split("\n").filter(Boolean)
+    return text.trim().split("\n").filter(Boolean)
       .map((l) => { try { return JSON.parse(l); } catch { return null; } })
       .filter((m) => m && m.event === "message")
       .sort((a, b) => b.time - a.time)
@@ -409,10 +407,41 @@ async function loadLog() {
       // absent on entries logged before this feature - fall back to the
       // plain sentence for those.
       .map((m) => ({ name: m.tags && m.tags[0], state: m.tags && m.tags[1], time: m.time, message: m.message }));
-    renderRows(rows);
   } catch {
-    ul.innerHTML = `<li class="muted">${t("app.histError")}</li>`;
+    return null;
   }
+}
+
+async function loadLog() {
+  if (logPoll) { clearTimeout(logPoll); logPoll = null; }
+  const ul = $("log");
+  ul.innerHTML = `<li class="muted">${t("app.loading")}</li>`;
+  $("histNote").textContent = cfg.cfLog ? "" : t("app.retention");
+  const rows = await fetchRows();
+  if (rows) renderRows(rows);
+  else ul.innerHTML = `<li class="muted">${t("app.histError")}</li>`;
+}
+
+// After a click the gate needs a few seconds to receive the command, actuate,
+// and post its own log line (ntfy relay + Worker write). A single fixed-delay
+// refresh raced that and usually missed. Instead re-fetch on a widening
+// schedule, quietly (no "loading…" flash), until an entry newer than anything
+// we already had shows up - or we run out of tries (~30s).
+function pollForNewEntry() {
+  if (logPoll) { clearTimeout(logPoll); logPoll = null; }
+  const known = latestRowTime;
+  const delays = [1500, 2000, 2500, 3000, 4000, 5000, 6000, 6000];
+  let i = 0;
+  const tick = async () => {
+    const rows = await fetchRows();
+    if (rows) {
+      renderRows(rows);
+      if (rows.some((r) => r.time > known)) { logPoll = null; return; }
+    }
+    if (i < delays.length) logPoll = setTimeout(tick, delays[i++]);
+    else logPoll = null;
+  };
+  logPoll = setTimeout(tick, delays[i++]);
 }
 
 function rel(epoch) {

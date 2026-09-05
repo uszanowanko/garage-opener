@@ -20,7 +20,7 @@ window.GARAGE_I18N = {
 
     "app.open": "Open / Close",
     "app.sending": "Sending…",
-    "app.sent": "Sent. Opening…",
+    "app.sent": "Signal sent",
     "app.failed": "Failed: {msg}",
     "app.recent": "Recent",
     "app.refresh": "Refresh",
@@ -59,7 +59,7 @@ window.GARAGE_I18N = {
 
     "app.open": "Otwórz / Zamknij",
     "app.sending": "Wysyłanie…",
-    "app.sent": "Wysłano. Otwieram…",
+    "app.sent": "Sygnał wysłany",
     "app.failed": "Błąd: {msg}",
     "app.recent": "Ostatnie",
     "app.refresh": "Odśwież",
